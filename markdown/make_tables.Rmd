@@ -1,0 +1,229 @@
+---
+title: "Tables"
+output: html_document
+date: "2025-12-01"
+---
+
+```{r}
+library(data.table)
+library(ggplot2)
+library(ggbeeswarm)
+library(ggthemes)
+library(here)
+
+TOP <- here()
+source(file.path(TOP, "plot_params.R"))
+source(file.path(TOP, "data_params.R"))
+source(file.path(TOP, "data_utils.R"))
+source(file.path(TOP, "post_analysis.R"))
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Utilities
+
+```{r}
+generate_latex_prefix <- function() {
+  # Initialize LaTeX code
+  rows <- c(
+    "\\begin{table}[!htbp]",
+    "\n",
+    paste0("\\caption{", COUNT_VL_LABEL_LATEX, " summary statistics for different subgroups. \\singlequote{PAMS} stands for \\enquote{Pre-, a-, or mildly symptomatic}. Only data associated with the first positive RT-PCR result in an infection were used.}"),
+    "\n",
+    "\\label{tab:vlSummary}",
+    "\n",
+    "\\begin{tabularx}{\\textwidth}{|>{\\RaggedLeft}p{3cm}|>{\\RaggedLeft}X|>{\\RaggedLeft}X|>{\\RaggedLeft}p{3cm}|>{\\RaggedLeft}X|}",
+    "\\hline",
+    "\n",
+    "\\rowcolor{lightgray}",
+    paste0(" & & \\textbf{Count} & \\textbf{Median} ", VL_LABEL_LATEX_LOWER, " & \\textbf{IQR} "),
+    "\\\\ "
+  )
+  return(paste0(rows, collapse = ""))
+}
+
+generate_latex_suffix <- function() {
+  rows <- c(
+    "\n",
+    "\\end{tabularx}",
+    "\n",
+    "\\end{table}"
+  )
+  return(paste0(rows, collapse = ""))
+}
+```
+
+# Load data
+
+```{r}
+# Load data
+dt <- get_first_pos_pcr_data(vl_first_pos_file = VL_FIRST_POS_FILE_TSV) %>%
+  .[!is.na(log10_load) & (log10_load > 0)]
+dt[, ageGroup3 := cut(age, breaks = AGE_BREAKS3, ordered = TRUE, labels = AGE_LABELS3)]
+```
+
+# Tables
+
+```{r}
+# Basic numbers
+min_date <- min(dt$date, na.rm = TRUE)
+max_date <- max(dt$date, na.rm = TRUE)
+n_infections <- uniqueN(dt$infection_hash)
+# We should have one positive PCR per infection
+median_age <- median(dt$age)
+Q1 <- quantile(dt$age, 0.25)
+Q3 <- quantile(dt$age, 0.75)
+perc_PAMS1 <- sum(dt$PAMS1 == TRUE) / nrow(dt)
+perc_women <- sum(dt$gender == "F") / (sum(dt$gender == "M") + sum(dt$gender == "F"))
+round(table(dt$variant) / nrow(dt), digits = 2)
+```
+
+
+
+```{r}
+# Overall counts (first positive PCR tests).
+# Compute counts and viral load summary statistics for different infection subgroups.
+variables <- c("PAMS1", "variant", "gender", "ageGroup3", "PCR")
+
+prefix <- generate_latex_prefix()
+suffix <- generate_latex_suffix()
+tables <- c()
+for (variable in variables) {
+  dt_summary <- setDT(summary_dt_vl(dt, by = variable, digits = 2, avg = "median"))
+  if (variable == "ageGroup3") {
+    dt_summary[Variable == "<30", Variable := "\\textless{30}"]
+    dt_summary[Variable == ">60", Variable := "\\textgreater{60}"]
+  } else if (variable == "PAMS1") {
+    dt_summary[, Variable := as.character(Variable)]
+    dt_summary[Variable == "0", Variable := "non-PAMS"]
+    dt_summary[Variable == "1", Variable := "PAMS"]
+  }
+  n_cats <- uniqueN(dt_summary$Variable)
+  row_first <- paste0("\n", "\\multirow{", n_cats, "}{*}", "{\\textbf{", VARIABLE_LABEL_DICT_LATEX[variable], "}}")
+  # Format each row as a latex string
+  latex_rows <- apply(dt_summary, 1, function(row) {
+    paste0(" & ", row["Variable"], " & ", "\\num{", row["Count"], "}", " & ", row["Median"], " & ", row["IQR"], " \\\\ ")
+  })
+  # Combine first row with first row in latex table
+  latex_rows[1] <- paste0(row_first, latex_rows[1])
+  # Combine all rows with \hline
+  latex_table <- paste(latex_rows, collapse = "\\cline{2-5}\n")
+  latex_table <- paste0(latex_table, "\n\\specialrule{0.25pt}{0pt}{0pt}")
+  tables <- c(tables, latex_table)
+}
+table <- paste(c(prefix, tables, suffix), collapse = "\\hline")
+```
+
+
+
+```{r}
+# Tables based on fitted data (i.e. the input data that was used for fitting)
+# Compute counts and viral load summary statistics for different infection subgroups.
+
+summary_dt <- function(dt, by) {
+  summary_dt <- dt[!is.na(by)] %>%
+    group_by(get(by)) %>%
+    summarise(
+      Count = n(),
+    ) %>%
+    setnames(old = "get(by)", new = "Variable")
+  return(summary_dt)
+}
+
+
+models <- c(
+  "model1_threading_sel3_chains4_n_iter2000_T2_trim_neg_pcrs_14_days_to_negative_exclude_lrt_samples_min_max_load_5",
+  "model1_threading_sel6_chains4_n_iter2000_T2_trim_neg_pcrs_14_days_to_negative_exclude_lrt_samples_min_max_load_5"
+)
+n_pcr_days <- c("three", "six")
+
+counter <- 1
+dt_list <- list()
+for (model in models) {
+  pcr_days_str <- paste0(n_pcr_days[counter], "PCRs")
+  run_data <- load_draws(
+    model = model,
+    model_dir = "model1",
+    model_no_stan = 1,
+    inc_warmup = FALSE,
+    testing = FALSE,
+    test_thin = 1
+  )
+  dt <- run_data$day_data
+  dt <- dt[!is.na(gender) & !is.na(log10_load) & !is.na(variant)]
+  dt[material == "Other", material := "Unknown"]
+  dt[is.na(material), material := "Unknown"]
+  dt_list[[pcr_days_str]] <- dt
+  counter <- counter + 1
+}
+
+variables <- c("variant", "PAMS3", "gender", "age_category3", "prior_infection", "material")
+
+tables <- c()
+for (variable in variables) {
+  dt_summary3 <- setDT(summary_dt(dt_list$three_pcrs, by = variable))
+  dt_summary6 <- setDT(summary_dt(dt_list$six_pcrs, by = variable))
+
+  if (variable == "age_category3") {
+    dt_summary3[Variable == "<30", Variable := "\\textless{30}"]
+    dt_summary3[Variable == ">60", Variable := "\\textgreater{60}"]
+
+    dt_summary6[Variable == "<30", Variable := "\\textless{30}"]
+    dt_summary6[Variable == ">60", Variable := "\\textgreater{60}"]
+  } else if (variable == "PAMS3") {
+    dt_summary3[, Variable := as.character(Variable)]
+    dt_summary3[Variable == "1", Variable := "Non-PAMS, non-hosp."]
+    dt_summary3[Variable == "2", Variable := "Hospitalized"]
+    dt_summary3[Variable == "3", Variable := "PAMS"]
+
+    dt_summary6[, Variable := as.character(Variable)]
+    dt_summary6[Variable == "1", Variable := "non-PAMS, non-hosp."]
+    dt_summary6[Variable == "2", Variable := "Hospitalized"]
+    dt_summary6[Variable == "3", Variable := "PAMS"]
+  } else if (variable == "prior_infection") {
+    dt_summary3[, Variable := as.character(Variable)]
+    dt_summary3[Variable == "FALSE", Variable := "No"]
+    dt_summary3[Variable == "TRUE", Variable := "Yes"]
+
+    dt_summary6[Variable == "FALSE", Variable := "No"]
+    dt_summary6[Variable == "TRUE", Variable := "Yes"]
+  } else if (variable == "gender") {
+    dt_summary3[, Variable := as.character(Variable)]
+    dt_summary3[Variable == "0", Variable := "Female"]
+    dt_summary3[Variable == "1", Variable := "Male"]
+
+    dt_summary6[Variable == "0", Variable := "Female"]
+    dt_summary6[Variable == "1", Variable := "Male"]
+  } else if (variable == "material") {
+    dt_summary3[, Variable := factor(Variable, levels = MATERIAL_LEVELS, labels = MATERIAL_LABELS)]
+    dt_summary6[, Variable := factor(Variable, levels = MATERIAL_LEVELS, labels = MATERIAL_LABELS)]
+  }
+  n_cats <- uniqueN(dt_summary3$Variable)
+  row_first <- paste0("\n", "\\multirow{", n_cats, "}{*}", "{\\textbf{", VARIABLE_LABEL_DICT_LATEX2[variable], "}}")
+  # Format each row as a latex string
+  dt_summary3[, Count6 := dt_summary6$Count]
+
+  latex_rows <- dt_summary3[
+    ,
+    paste0(
+      " & ", Variable,
+      " & \\num{", Count, "}",
+      " & \\num{", Count6, "}",
+      " \\\\ "
+    )
+  ]
+  # Combine first row with first row in latex table
+  latex_rows[1] <- paste0(row_first, latex_rows[1])
+  # Combine all rows with \hline
+  latex_table <- paste(latex_rows, collapse = "\\cline{2-4}\n")
+  latex_table <- paste0(latex_table, "\n\\specialrule{0.25pt}{0pt}{0pt}")
+  tables <- c(tables, latex_table)
+}
+
+# prefix = generate_latex_prefix()
+# suffix = generate_latex_suffix()
+
+table <- paste(tables, collapse = "\\hline")
+```
+

@@ -1,0 +1,353 @@
+---
+title: "Evaluation of viral load trajectory analysis (real data)"
+output: html_document
+date: "2026-01-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(stringr)
+library(ggplot2)
+library(RColorBrewer) # For color palettes
+library(xtable)
+library(ggstance)
+library(ggstats)
+library(assertthat)
+library(here)
+
+
+TOP <- here()
+source(file.path(TOP, "data_params.R"))
+source(file.path(TOP, "plot_params.R"))
+source(file.path(TOP, "plot_utils.R"))
+source(file.path(TOP, "data_utils.R"))
+source(file.path(TOP, "post_analysis.R"))
+
+
+pdata_dir <- file.path(TOP, "pdata")
+
+plot_dir <- DIR_FIGURES_VL
+param_sizes_suffix <- ""
+sampling_iterations <- 2000
+
+# Plot params
+alpha_current <- ALPHA_SIM_PLOT
+width_current <- WIDTH_JITTER_SIM
+height_current <- HEIGHT_JITTER_SIM
+size_current <- GEOM_POINT_SIZE_SIM
+height_plot <- HEIGHT_SIM_PLOT
+left_margin <- ANNOTATION_MARGIN_LEFT_SIM_PLOT
+hjust <- ANNOTATION_HJUST_SIM_PLOT
+```
+
+
+# Load data
+
+```{r}
+dts <- get_dts(model_nos = c(1, 2, 4, 5), sampling_iterations = sampling_iterations)
+dt <- dts[["dt"]]
+dte <- dts[["dte"]]
+dt_avg <- get_group_avg_dts(model_nos = c(1, 2), sampling_iterations = sampling_iterations)
+
+dt_pp_wthosp <- get_post_pred_group_dt(
+  ref_variant = "wildtype",
+  ref_hosp_status = "hospitalized",
+  sampling_iterations = sampling_iterations
+)
+dt_pp_omihosp <- get_post_pred_group_dt(
+  ref_variant = "omicron",
+  ref_hosp_status = "hospitalized",
+  sampling_iterations = sampling_iterations
+)
+
+dt_pp_wtpams <- get_post_pred_group_dt(
+  ref_variant = "wildtype",
+  ref_hosp_status = "pams",
+  sampling_iterations = sampling_iterations
+)
+dt_pp_omipams <- get_post_pred_group_dt(
+  ref_variant = "omicron",
+  ref_hosp_status = "pams",
+  sampling_iterations = sampling_iterations
+)
+```
+
+# Comparing models with broader and tighter priors
+
+```{r}
+min_n_tests_current <- 6
+
+group_cols <- return_group_cols(log_prefix = "")$group_cols_mapping
+main_cols <- list(
+  intercept = c("intercept_mu", "intercept_sigma"),
+  slope_up = c("slope_up_mu", "slope_up_sigma"),
+  slope_down = c("slope_down_mu", "slope_down_sigma"),
+  other = c("alpha_mu", "sigma_sigma", "sigma_mu")
+)
+all_cols <- c(
+  "model_no_stan", group_cols$slope_up, group_cols$slope_down, group_cols$intercept,
+  main_cols$slope_up, main_cols$slope_down, main_cols$intercept, main_cols$other
+)
+dte_compare <- dte[(model_no_stan %in% (c(1, 2, 4, 5))) & (n_min_tests == min_n_tests_current), ..all_cols]
+dte_compare[, model_no_stan := factor(model_no_stan,
+  levels = c(1, 2, 4, 5),
+  labels = c("model1", "model2", "model1_adj", "model2_adj")
+)]
+dte_compare <- as.data.table(t(dte_compare), keep.rownames = TRUE)
+colnames(dte_compare)[1] <- "statistic"
+colnames(dte_compare)[2] <- dte_compare$V1[1]
+colnames(dte_compare)[3] <- dte_compare$V2[1]
+colnames(dte_compare)[4] <- dte_compare$V3[1]
+colnames(dte_compare)[5] <- dte_compare$V4[1]
+dte_compare <- dte_compare[statistic != "model_no_stan"]
+dte_compare[, model1 := as.numeric(model1)]
+dte_compare[, model1_adj := as.numeric(model1_adj)]
+dte_compare[, model2 := as.numeric(model2)]
+dte_compare[, model2_adj := as.numeric(model2_adj)]
+
+# Compute relative difference between original and prior-adjusted models
+diff_model1 <- (dte_compare$model1_adj - dte_compare$model1) / abs(dte_compare$model1)
+diff_model2 <- (dte_compare$model2_adj - dte_compare$model2) / abs(dte_compare$model2)
+
+
+dte_compare[, diff_model1 := diff_model1]
+dte_compare[, diff_model2 := diff_model2]
+dte_compare[, diff_model1_abs := abs(diff_model1)]
+dte_compare[, diff_model2_abs := abs(diff_model2)]
+```
+
+```{r}
+max(abs(dte_compare$diff_model1))
+median(abs(dte_compare$diff_model1))
+
+max(abs(dte_compare$diff_model2))
+median(abs(dte_compare$diff_model2))
+```
+
+```{r}
+setorder(dte_compare, -diff_model2_abs)
+dte_compare[, .(statistic, diff_model2)]
+```
+
+
+# Plots
+
+```{r, fig.width=COL_WIDTH*2, fig.height=height_plot}
+generate_main_params_plots(plot_dir, sampling_iterations = sampling_iterations)
+```
+
+```{r}
+# Make group plots
+# Posterior predictions on subgroup main parameter medians (computed from infection-level parameter estimates)
+plot_group_averages(dt_avg, plot_dir, height_plot, sampling_iterations = sampling_iterations)
+plot_group_averages(dt_avg, plot_dir, height_plot, diff = TRUE, sampling_iterations = sampling_iterations)
+
+# Plot group parameter estimates
+generate_group_plots(
+  dt = dte,
+  plot_dir = plot_dir,
+  height_plot = height_plot,
+  sampling_iterations = sampling_iterations
+)
+
+# Posterior predictions on subgroup main parameter medians (computed from population-level parameter estimates)
+for (variant_current in c("wildtype", "omicron")) {
+  for (hosp_status_current in c("pams", "hospitalized")) {
+    for (diff_current in c(FALSE, TRUE)) {
+      plot_group_post_pred(
+        plot_dir = plot_dir, height_plot = height_plot,
+        diff = diff_current,
+        ref_variant = variant_current,
+        ref_hosp_status = hosp_status_current,
+        sampling_iterations = sampling_iterations
+      )
+    }
+  }
+}
+```
+
+# Tables
+
+```{r}
+# Group columns
+group_cols <- return_group_cols(log_prefix = "")$group_cols_mapping
+group_cols_labels <- return_group_cols(log_prefix = "", latex = TRUE)$group_cols_mapping_labels
+
+latex_body_list <- list()
+
+for (main_param in c("slope_up", "intercept", "slope_down")) {
+  cols_current <- unlist(unname(group_cols[[main_param]]))
+  cols_hdi_current <- paste0(cols_current, "_hdi")
+  cols_hdi50_current <- paste0(cols_current, "_hdi50")
+  cols_reshape <- c("model_no_stan", "min_n_tests", cols_current, cols_hdi_current, cols_hdi50_current)
+  name_mapping_current <- group_cols_labels[[main_param]]
+
+  # model_levels = c(1, 2)
+  model_levels <- c(4, 5)
+  model_labels <- c("Model 1", "Model 2")
+  model_nos <- c(1, 2)
+
+  dte_reshaped <- reshape_dt(dte[model_no_stan %in% model_levels, ..cols_reshape], hdi_cols = TRUE)
+  dte_reshaped[, model := factor(model_no_stan, levels = model_levels, labels = model_labels)]
+  dte_reshaped <- dte_reshaped[order(model_no_stan, min_n_tests)]
+  dte_reshaped[, lower := round(lower, 2)]
+  dte_reshaped[, upper := round(upper, 2)]
+  # dte_reshaped[, hdi:=paste0(lower, " & ", upper)]
+
+  latex_body_list[[main_param]] <- create_latex_body_real_data(dte_reshaped, name_mapping_current)
+}
+```
+
+
+```{r}
+cat(latex_body_list$slope_up)
+```
+
+
+```{r}
+# Posterior predictions of groups (computed with infection-level parameters)
+dt_group_avg <- get_group_avg_dts(
+  model_nos = c(1, 2),
+  sampling_iterations = sampling_iterations
+)
+
+diff_current <- TRUE
+
+group_cols_avg <- return_group_avg_cols(log_prefix = "", diff = diff_current)$group_cols_mapping
+group_cols_avg_labels <- return_group_avg_cols(
+  log_prefix = "",
+  diff = diff_current
+)$group_cols_mapping_labels
+group_cols_avg_labels_latex <- return_group_avg_cols(
+  log_prefix = "",
+  diff = diff_current,
+  latex = TRUE
+)$group_cols_mapping_labels
+
+
+latex_body_list <- list()
+
+for (main_param in c("up", "intercept", "down", "slope_up", "slope_down")) {
+  cols_current <- unlist(unname(group_cols_avg[[main_param]]))
+  cols_hdi_current <- paste0(cols_current, "_hdi")
+  cols_hdi50_current <- paste0(cols_current, "_hdi50")
+  cols_reshape <- c(
+    "model_no_stan", "min_n_tests", cols_current, cols_hdi_current,
+    cols_hdi50_current
+  )
+  name_mapping_current <- group_cols_avg_labels_latex[[main_param]]
+
+  model_levels <- c(1, 2)
+  model_labels <- c("Model 1", "Model 2")
+  model_nos <- c(1, 2)
+
+  dt_reshaped <- reshape_dt(dt_group_avg[, ..cols_reshape], hdi_cols = TRUE)
+  dt_reshaped[, model := factor(model_no_stan, levels = model_levels, labels = model_labels)]
+  dt_reshaped <- dt_reshaped[order(model_no_stan, min_n_tests)]
+  dt_reshaped[, lower := round(lower, 2)]
+  dt_reshaped[, upper := round(upper, 2)]
+  dt_reshaped[, hdi := paste0(lower, ", ", upper)]
+
+  latex_body_list[[main_param]] <- create_latex_body_real_data(dt_reshaped, name_mapping_current)
+}
+```
+
+
+```{r}
+cat(latex_body_list$slope_up)
+```
+
+
+```{r}
+# Posterior predictions of groups (computed with population-level parameters)
+diff <- FALSE
+hosp <- TRUE
+diff_suffix <- ifelse(diff, "_diff", "")
+groups <- return_group_post_pred_cols(latex = TRUE, diff = diff)
+
+group_name_mapping <- groups$group_labels
+names(group_name_mapping) <- groups$group_names
+
+latex_body_list <- list()
+
+if (hosp) {
+  dt_current <- dt_pp_omihosp
+} else {
+  dt_current <- dt_pp_omipams
+}
+
+for (main_param in c("time2peak", "intercept", "time_from_peak", "slope_up", "slope_down")) {
+  col_current <- paste0(main_param, diff_suffix)
+  cols_hdi_current <- c(
+    paste0(main_param, "_hdi_lower", diff_suffix),
+    paste0(main_param, "_hdi_upper", diff_suffix)
+  )
+  cols_hdi50_current <- c(
+    paste0(main_param, "_hdi50_lower", diff_suffix),
+    paste0(main_param, "_hdi50_upper", diff_suffix)
+  )
+  cols_chosen <- c(
+    "model_no_stan", "min_n_tests", "group", col_current,
+    cols_hdi_current, cols_hdi50_current
+  )
+
+  model_levels <- c(1, 2)
+  model_labels <- c("Model 1", "Model 2")
+  model_nos <- c(1, 2)
+
+  dt_groups <- dt_current[, ..cols_chosen]
+  dt_groups[, value := get(col_current)]
+  dt_groups[, statistic := group]
+  dt_groups[, model := factor(model_no_stan, levels = model_levels, labels = model_labels)]
+  dt_groups <- dt_groups[order(model_no_stan, min_n_tests)]
+  dt_groups[, lower := round(get(cols_hdi_current[1]), 2)]
+  dt_groups[, upper := round(get(cols_hdi_current[2]), 2)]
+  dt_groups[, hdi := paste0(lower, ", ", upper)]
+
+  latex_body_list[[main_param]] <- create_latex_body_real_data(dt_groups, group_name_mapping)
+}
+```
+
+
+```{r}
+# Main parameters
+sigma_cols <- return_sigma_cols()
+sigma_hdi_cols <- paste0(sigma_cols, "_hdi")
+sigma_hdi50_cols <- paste0(sigma_cols, "_hdi50")
+cols_current <- c("intercept", "time2peak", "time_from_peak", "sigma", "slope_up", "slope_down")
+cols_hdi_current <- paste0(cols_current, "_hdi")
+cols_hdi50_current <- paste0(cols_current, "_hdi50")
+cols_reshape <- c(
+  "model_no_stan", "min_n_tests", cols_current, cols_hdi_current,
+  cols_hdi50_current, sigma_cols, sigma_hdi_cols, sigma_hdi50_cols
+)
+
+# model_levels = c(1, 2)
+model_levels <- c(4, 5)
+model_labels <- c("Model 1", "Model 2")
+model_nos <- c(1, 2)
+
+name_mapping <- list(
+  "intercept" = "Peak", "time2peak" = "Proliferation time", "time_from_peak" = "Clearance time",
+  "slope_up" = "Proliferation rate", "slope_down" = "Clearance rate",
+  "sigma" = "Residual $\\sigma$", "intercept_sigma" = "$e^{\\sigma_{peak}}$",
+  "slope_up_sigma" = "$e^{\\sigma_{proliferation\\,rate}}$",
+  "slope_down_sigma" = "$e^{\\sigma_{clearance\\,rate}}$"
+)
+dte_reshaped <- reshape_dt(dte[, ..cols_reshape], hdi_cols = TRUE)
+dte_reshaped[, model := factor(model_no_stan, levels = model_levels, labels = model_labels)]
+dte_reshaped <- dte_reshaped[order(model_no_stan, min_n_tests)]
+dte_reshaped[, lower := round(lower, 2)]
+dte_reshaped[, upper := round(upper, 2)]
+dte_reshaped[, hdi := paste0(lower, ", ", upper)]
+
+latex_body <- create_latex_body_real_data(dte_reshaped, name_mapping)
+```
+
+```{r}
+cat(latex_body_list$time2peak)
+```
+
+

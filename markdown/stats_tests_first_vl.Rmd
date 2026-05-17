@@ -1,0 +1,131 @@
+---
+title: "Statistical tests of first viral loads"
+output: html_document
+date: "2026-01-05"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(brms)
+library(dplyr)
+library(here)
+library(posterior)
+
+TOP <- here()
+source(file.path(TOP, "data_utils.R"))
+outdir <- DIR_FIT_FIRST_VL
+```
+
+```{r}
+dt <- load_first_pos_vl_data()
+# We need to make sure that age category is not ordered, else brms does
+# some polynomial fit
+dt$age_category3 <- factor(dt$age_category3, ordered = FALSE)
+dt$age_category3 <- relevel(dt$age_category3, ref = "<30")
+# interaction factor for grouping PAMS and variant
+dt[, pams_variant := interaction(dt$PAMS1, dt$variant, drop = TRUE)]
+```
+
+
+```{r Analyse results}
+current_var_name <- "age" # in c("variant", "age, "pams_variant", "pams")
+current_file <- paste0(current_var_name, "_model_skewnormal.Rdata")
+if (current_var_name == "age") {
+  group_col <- "age_category3"
+} else if (current_var_name == "pams") {
+  group_col <- "PAMS1"
+} else {
+  group_col <- current_var_name
+}
+
+load(file.path(outdir, current_file))
+draws <- Bfit$fit %>% as_draws()
+ss_hdi <-
+  draws %>%
+  summarise_draws(~ quantile(.x, probs = c(0.03, 0.97))) %>%
+  data.table()
+ss <-
+  draws %>%
+  summarise_draws() %>%
+  data.table()
+
+# merge by variable
+ss <- merge(ss, ss_hdi[, .(variable, q3 = `3%`, q97 = `97%`)],
+  by = "variable"
+)
+```
+
+```{r}
+View(format(ss, scientific = FALSE))
+```
+
+```{r}
+# Average over fitted data
+ep <- posterior_epred(Bfit) # matrix: draws x observations
+ep_group <- apply(ep, 1, function(draw) {
+  tapply(draw, dt[[group_col]], mean)
+})
+
+ep_group <- t(ep_group)
+
+apply(ep_group, 2, mean) # posterior mean per combo
+apply(ep_group, 2, quantile, c(0.03, 0.97)) # 94% CI
+```
+
+```{r}
+# For skew-normal
+# The following are out-of-sample predictions
+# compute differences in means
+new_data_pams_variant <- expand.grid(
+  variant = c("Wildtype", "Alpha", "Delta", "Omicron"),
+  PAMS1 = c(TRUE, FALSE)
+)
+
+new_data_variant <- expand.grid(
+  variant = c("Wildtype", "Alpha", "Delta", "Omicron")
+)
+
+new_data_pams <- expand.grid(
+  PAMS1 = c(TRUE, FALSE)
+)
+
+new_data_age <- expand.grid(
+  age_category3 = c("<30", "30-60", ">60")
+)
+
+if (current_var_name == "pams") {
+  ep_pams <- posterior_epred(Bfit, newdata = new_data_pams)
+  # Difference B - A for each posterior draw
+  diff_pams <- ep_pams[, 2] - ep_pams[, 1]
+  mean_pams <- mean(diff_pams)
+  hpdi_pams <- quantile(diff_pams, probs = c(0.023, 0.97))
+} else if (current_var_name == "variant") {
+  ep_variant <- posterior_epred(Bfit, newdata = new_data_variant)
+  diff_alpha <- ep_variant[, 2] - ep_variant[, 1]
+  diff_delta <- ep_variant[, 3] - ep_variant[, 1]
+  diff_omi <- ep_variant[, 4] - ep_variant[, 1]
+  diff_unknown <- ep_variant[, 5] - ep_variant[, 1]
+  mean_alpha <- mean(diff_alpha)
+  mean_delta <- mean(diff_delta)
+  mean_omi <- mean(diff_omi)
+  mean_unknown <- mean(diff_unknown)
+} else if (current_var_name == "age") {
+  ep_age <- posterior_epred(Bfit, newdata = new_data_age)
+  diff_age2 <- ep_age[, 2] - ep_age[, 1]
+  diff_age3 <- ep_age[, 3] - ep_age[, 1]
+  mean_age2 <- mean(diff_age2)
+  mean_age3 <- mean(diff_age3)
+} else {
+  ep_PAMS_variant <- posterior_epred(Bfit, newdata = new_data_pams_variant)
+}
+```
+
+
+```{r Look at priors}
+prior_summary(Bfit)
+```
+
+

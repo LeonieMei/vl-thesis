@@ -1,0 +1,1155 @@
+---
+title: "Evaluation of viral load trajectory simulation runs"
+output: html_document
+date: "2025-11-25"
+---
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(stringr)
+library(ggplot2)
+library(RColorBrewer) # For color palettes
+library(xtable)
+library(here)
+library(tools)
+
+
+TOP <- here()
+source(file.path(TOP, "data_params.R"))
+source(file.path(TOP, "plot_params.R"))
+source(file.path(TOP, "plot_utils.R"))
+source(file.path(TOP, "data_utils.R"))
+
+param_sizes_all_zero_current <- TRUE
+param_sizes_suffix <- ifelse(param_sizes_all_zero_current, "", "GroupDiff")
+plot_dir_final <- ifelse(param_sizes_all_zero_current, "param_sizes_all_zero",
+  "param_sizes_not_zero"
+)
+plot_dir <- file.path(DIR_FIGURES_VL_SIM, plot_dir_final)
+
+# Plot params
+alpha_current <- ALPHA_SIM_PLOT
+width_current <- WIDTH_JITTER_SIM
+height_current <- HEIGHT_JITTER_SIM
+size_current <- GEOM_POINT_SIZE_SIM
+height_plot <- HEIGHT_SIM_PLOT
+left_margin <- ANNOTATION_MARGIN_LEFT_SIM_PLOT
+hjust <- ANNOTATION_HJUST_SIM_PLOT
+dodge_height <- 0.5
+col_width <- COL_WIDTH
+```
+
+# Utilities
+```{r}
+# Function to format a single row as LaTeX with dec_places decimal digits for numeric values
+format_row <- function(row, bold = FALSE, dec_places = 2, latex_math = FALSE) {
+  format_string <- paste0("%.", dec_places, "f")
+  # Format numeric values to dec_places decimal places
+  formatted_row <- sapply(row, function(x) {
+    if (is.numeric(x)) {
+      # Format numeric values to dec_places decimal places, $s are necessary to
+      # format minus signs correctly in latex
+      x <- sprintf(format_string, x)
+    }
+    if (bold) {
+      assert_that(!latex_math)
+      x <- paste0("\\textbf{", x, "}")
+    } else {
+      x <- x
+    }
+    if (latex_math) {
+      x <- paste0("$", x, "$")
+    }
+    return(x)
+  })
+  # Collapse the row with " & " and add \\ \hline
+  paste0(paste0(formatted_row, collapse = " & "), " \\\\ \\hline")
+}
+```
+
+
+
+# Load data
+
+```{r}
+model_no_current <- 2
+
+dt_orig <- process_sim_dt(
+  dt = fread(PARAMS_FILE, sep = "\t"),
+  param_sizes_all_zero = param_sizes_all_zero_current
+)
+dte_orig <- process_sim_dt(
+  dt = fread(PARAMS_EXP_FILE, sep = "\t"),
+  param_sizes_all_zero = param_sizes_all_zero_current
+)
+dthdi_orig <- process_sim_dt(
+  dt = fread(PARAMS_HDI_FILE, sep = "\t"),
+  param_sizes_all_zero = param_sizes_all_zero_current
+)
+
+dt_all <- process_sim_dt(
+  dt = fread(PARAMS_DIFF_FILE, sep = "\t"),
+  param_sizes_all_zero = param_sizes_all_zero_current
+)
+dtr_all <- process_sim_dt(fread(PARAMS_REL_DIFF_FILE, sep = "\t"),
+  param_sizes_all_zero = param_sizes_all_zero_current
+)
+dthdi_all <- process_sim_dt(fread(PARAMS_DIFF_HDI_FILE, sep = "\t"),
+  param_sizes_all_zero = param_sizes_all_zero_current
+)
+dthdi50_all <- process_sim_dt(fread(PARAMS_DIFF_HDI50_FILE, sep = "\t"),
+  param_sizes_all_zero = param_sizes_all_zero_current
+)
+dtrhdi_all <- process_sim_dt(fread(PARAMS_REL_DIFF_HDI_FILE, sep = "\t"),
+  param_sizes_all_zero = param_sizes_all_zero_current
+)
+dtrhdi50_all <- process_sim_dt(fread(PARAMS_REL_DIFF_HDI50_FILE, sep = "\t"),
+  param_sizes_all_zero = param_sizes_all_zero_current
+)
+
+dtr_all <- merge(dtr_all, dtrhdi_all, by = "model", suffix = c("", "_hdi"))
+dtr_all <- parse_hdi_cols(merge(dtr_all, dtrhdi50_all, by = "model", suffix = c("", "_hdi50")))
+
+dt_all <- merge(dt_all, dthdi_all, by = "model", suffix = c("", "_hdi"))
+dt_all <- parse_hdi_cols(merge(dt_all, dthdi50_all, by = "model", suffix = c("", "_hdi50")))
+
+dts_model <- get_sim_diff_dts(
+  model_no = model_no_current,
+  param_sizes_all_zero = param_sizes_all_zero_current
+)
+dt <- dts_model$dt
+dtr <- dts_model$dtr
+
+
+annotation_label <- ifelse(model_no_current %in% c(3, 1), "A", "B")
+```
+
+# Plots
+
+## Differences between true and estimated main parameter values
+
+```{r, fig.width=col_width*2, fig.height=height_plot}
+p_up <- plot_main_model_params(dtr,
+  y = "min_n_tests", x = "time2peak",
+  color = "min_n_pos_tests", alpha = alpha_current,
+  height_dodge = dodge_height,
+  size_point = size_current,
+  ylabel = MINIMUM_PCRS_LABEL2,
+  xlabel = "Relative error in proliferation time (%)",
+  color_label = MINIMUM_POS_PCRS_LABEL2,
+  annotation_label = annotation_label,
+  left_margin = ANNOTATION_MARGIN_LEFT_SIM_PLOT,
+  hjust = ANNOTATION_HJUST_SIM_PLOT,
+  as_percent = TRUE
+) +
+  xlim(0, 55)
+
+
+ggsave(
+  filename = file.path(plot_dir, paste0(
+    "simTimeToPeakDiffModel",
+    model_no_current,
+    param_sizes_suffix, ".png"
+  )),
+  plot = p_up,
+  width = COL_WIDTH * 2,
+  height = height_plot,
+  units = "in",
+  dpi = DPI
+)
+```
+
+```{r}
+p_up
+```
+
+
+
+```{r, fig.width=COL_WIDTH*2, fig.height=height_plot}
+p_down <- plot_main_model_params(dtr,
+  y = "min_n_tests", x = "time_from_peak",
+  color = "min_n_pos_tests", alpha = alpha_current,
+  height_dodge = dodge_height,
+  size_point = size_current,
+  ylabel = MINIMUM_PCRS_LABEL,
+  xlabel = "Relative error in clearance time (%)",
+  color_label = MINIMUM_POS_PCRS_LABEL2,
+  annotation_label = annotation_label,
+  left_margin = ANNOTATION_MARGIN_LEFT_SIM_PLOT,
+  hjust = ANNOTATION_HJUST_SIM_PLOT,
+  as_percent = TRUE
+) + xlim(5, 30)
+
+
+ggsave(
+  filename = file.path(plot_dir, paste0(
+    "simTimeFromPeakDiffModel",
+    model_no_current,
+    param_sizes_suffix,
+    ".png"
+  )),
+  plot = p_down,
+  width = COL_WIDTH * 2,
+  height = height_plot,
+  units = "in",
+  dpi = DPI
+)
+```
+
+```{r}
+p_down
+```
+
+
+```{r, fig.width=COL_WIDTH*2, fig.height=height_plot}
+xlabel_peak <- expression(atop(
+  "Estimated - true peak ",
+  phantom(x)^phantom(x) * paste(log[10], " viral load")
+))
+p_peak <- plot_main_model_params(dt,
+  y = "min_n_tests", x = "intercept",
+  color = "min_n_pos_tests", alpha = alpha_current,
+  height_dodge = dodge_height,
+  size_point = size_current,
+  ylabel = MINIMUM_PCRS_LABEL,
+  xlabel = xlabel_peak,
+  color_label = MINIMUM_POS_PCRS_LABEL2,
+  annotation_label = annotation_label,
+  left_margin = ANNOTATION_MARGIN_LEFT_SIM_PLOT,
+  hjust = ANNOTATION_HJUST_SIM_PLOT
+)
+
+ggsave(
+  filename = file.path(plot_dir, paste0(
+    "simPeakDiffModel",
+    model_no_current,
+    param_sizes_suffix, ".png"
+  )),
+  plot = p_peak,
+  width = COL_WIDTH * 2,
+  height = height_plot,
+  units = "in",
+  dpi = DPI
+)
+```
+
+```{r}
+p_peak
+```
+
+## Differences between true and estimated sigma parameter values
+
+```{r}
+xlabel_up_sigma <- "Relative difference in random up-slope\nstandard deviation"
+p_up_sigma <- plot_main_model_params(dtr,
+  y = "min_n_tests", 
+  x = "slope_up_sigma",
+  color = "min_n_pos_tests", 
+  alpha = alpha_current,
+  height_dodge = dodge_height,
+  size_point = size_current,
+  ylabel = MINIMUM_PCRS_LABEL,
+  xlabel = xlabel_up_sigma,
+  color_label = MINIMUM_POS_PCRS_LABEL2,
+  annotation_label = annotation_label,
+  left_margin = ANNOTATION_MARGIN_LEFT_SIM_PLOT,
+  hjust = ANNOTATION_HJUST_SIM_PLOT
+)
+
+
+ggsave(
+  filename = file.path(plot_dir, paste0(
+    "simUpSlopeSigmaDiffModel",
+    model_no_current, ".png"
+  )),
+  plot = p_up_sigma,
+  width = COL_WIDTH * 2,
+  height = height_plot,
+  units = "in",
+  dpi = DPI
+)
+```
+
+```{r}
+p_up_sigma
+```
+
+```{r}
+xlabel_down_sigma <- "Relative difference in random down-slope\nstandard deviation"
+p_down_sigma <- plot_main_model_params(dtr,
+  y = "min_n_tests", x = "slope_down_sigma",
+  color = "min_n_pos_tests", alpha = alpha_current,
+  height_dodge = dodge_height,
+  size_point = size_current,
+  ylabel = MINIMUM_PCRS_LABEL,
+  xlabel = xlabel_down_sigma,
+  color_label = MINIMUM_POS_PCRS_LABEL2,
+  annotation_label = annotation_label,
+  left_margin = ANNOTATION_MARGIN_LEFT_SIM_PLOT,
+  hjust = ANNOTATION_HJUST_SIM_PLOT
+)
+
+
+ggsave(
+  filename = file.path(plot_dir, paste0(
+    "simDownSlopeSigmaDiffModel",
+    model_no_current, ".png"
+  )),
+  plot = p_down_sigma,
+  width = COL_WIDTH * 2,
+  height = height_plot,
+  units = "in",
+  dpi = DPI
+)
+```
+
+```{r}
+p_down_sigma
+```
+
+
+```{r}
+xlabel_peak_sigma <- "Relative difference in random intercept\nstandard deviation"
+p_peak_sigma <- plot_main_model_params(dtr,
+  y = "min_n_tests", x = "intercept_sigma",
+  color = "min_n_pos_tests", alpha = alpha_current,
+  height_dodge = dodge_height,
+  size_point = size_current,
+  ylabel = MINIMUM_PCRS_LABEL,
+  xlabel = xlabel_peak_sigma,
+  color_label = MINIMUM_POS_PCRS_LABEL2,
+  annotation_label = annotation_label,
+  left_margin = ANNOTATION_MARGIN_LEFT_SIM_PLOT,
+  hjust = ANNOTATION_HJUST_SIM_PLOT
+)
+
+
+ggsave(
+  filename = file.path(plot_dir, paste0(
+    "simPeakSigmaDiffModel",
+    model_no_current, ".png"
+  )),
+  plot = p_peak_sigma,
+  width = COL_WIDTH * 2,
+  height = height_plot,
+  units = "in",
+  dpi = DPI
+)
+```
+
+```{r}
+p_peak_sigma
+```
+
+```{r}
+xlabel_sigma <- "Relative difference in residual error"
+p_sigma <- plot_main_model_params(dt,
+  y = "min_n_tests", 
+  x = "sigma",
+  color = "min_n_pos_tests", 
+  alpha = alpha_current,
+  height_dodge = dodge_height,
+  size_point = size_current,
+  ylabel = MINIMUM_PCRS_LABEL,
+  xlabel = xlabel_sigma,
+  color_label = MINIMUM_POS_PCRS_LABEL2,
+  annotation_label = annotation_label,
+  left_margin = ANNOTATION_MARGIN_LEFT_SIM_PLOT,
+  hjust = ANNOTATION_HJUST_SIM_PLOT
+)
+
+
+ggsave(
+  filename = file.path(plot_dir, paste0(
+    "simSigmaDiffModel",
+    model_no_current, ".png"
+  )),
+  plot = p_sigma,
+  width = COL_WIDTH * 2,
+  height = height_plot,
+  units = "in",
+  dpi = DPI
+)
+```
+
+```{r}
+p_sigma
+```
+
+
+## Differences between true and estimated group params
+
+```{r}
+group_var <- "omicron"
+group_label <- "omicron"
+up_var <- paste0("slope_up_", group_var)
+down_var <- paste0("slope_down_", group_var)
+peak_var <- paste0("intercept_", group_var)
+
+up_var2 <- paste0("slope_up_", group_var, "_hdi_contains_true_value")
+down_var2 <- paste0("slope_down_", group_var, "_hdi_contains_true_value")
+peak_var2 <- paste0("intercept_", group_var, "_hdi_contains_true_value")
+
+shapes <- c(16, 15)
+```
+
+
+```{r}
+p_up_group <- ggplot(dtr, aes(
+  x = min_n_tests, y = !!sym(up_var),
+  color = min_n_pos_tests, shape = !!sym(up_var2)
+)) +
+  scale_color_viridis_d() + # Default: viridis palette
+  geom_jitter(width = width_current, height = height_current, alpha = alpha_current, size = size_current) +
+  labs(
+    title = "", x = MINIMUM_PCRS_LABEL,
+    y = paste0("Relative difference in ", group_label, "\nup-slope parameter"),
+    color = MINIMUM_POS_PCRS_LABEL2,
+    shape = "94% HDI contains\ntrue value"
+  ) +
+  scale_shape_manual(values = rev(shapes)) +
+  theme_thesis()
+
+
+ggsave(
+  filename = file.path(plot_dir, paste0(
+    "simUpSlope", toTitleCase(group_var),
+    "DiffModel", model_no_current, ".png"
+  )),
+  plot = p_up_group,
+  width = COL_WIDTH * 2,
+  height = height_plot * 1.5,
+  units = "in",
+  dpi = DPI
+)
+```
+
+```{r}
+p_up_group
+```
+
+
+```{r}
+p_down_group <- ggplot(dtr, aes(
+  x = min_n_tests, y = !!sym(down_var),
+  color = min_n_pos_tests
+)) +
+  scale_color_viridis_d() + # Default: viridis palette
+  geom_jitter(width = width_current, height = height_current, alpha = alpha_current, size = size_current) +
+  labs(
+    title = "", x = MINIMUM_PCRS_LABEL,
+    y = paste0("Relative difference in ", group_label, "\ndown-slope parameter"),
+    color = MINIMUM_POS_PCRS_LABEL2
+  ) +
+  theme_thesis()
+
+
+ggsave(
+  filename = file.path(plot_dir, paste0(
+    "simDownSlope", toTitleCase(group_var), "PAMSDiffModel",
+    model_no_current, ".png"
+  )),
+  plot = p_down_group,
+  width = COL_WIDTH * 2,
+  height = height_plot * 1.5,
+  units = "in",
+  dpi = DPI
+)
+```
+
+```{r}
+p_down_group
+```
+
+```{r}
+p_peak_group <- ggplot(dtr, aes(
+  x = min_n_tests, y = !!sym(peak_var),
+  color = min_n_pos_tests
+)) +
+  scale_color_viridis_d() + # Default: viridis palette
+  geom_jitter(width = width_current, height = height_current, alpha = alpha_current, size = size_current) +
+  labs(
+    title = "", x = MINIMUM_PCRS_LABEL,
+    y = paste0("Relative difference in ", group_label, "\nintercept parameter"),
+    color = MINIMUM_POS_PCRS_LABEL2
+  ) +
+  theme_thesis()
+
+
+ggsave(
+  filename = file.path(plot_dir, paste0(
+    "simIntercept", toTitleCase(group_var),
+    "DiffModel", model_no_current, ".png"
+  )),
+  plot = p_peak_group,
+  width = COL_WIDTH * 2,
+  height = height_plot * 1.5,
+  units = "in",
+  dpi = DPI
+)
+```
+
+```{r}
+p_peak_group
+```
+
+### Summary plots
+
+```{r}
+generate_sim_data_group_plots(param_sizes_all_zero = TRUE)
+```
+
+```{r}
+p_group_sum
+```
+
+```{r}
+p_slope_up_box
+```
+
+
+# Tables
+
+```{r}
+cols_of_interest <- c(
+  "model_no_stan", "min_n_tests", "min_n_pos_tests", "iteration",
+  "intercept", "intercept_hdi", "time2peak", "time2peak_hdi",
+  "time_from_peak", "time_from_peak_hdi", "sigma"
+)
+
+cols_of_interest2 <- c(
+  "model_no_stan", "min_n_tests", "min_n_pos_tests", "iteration",
+  "intercept", "time2peak", "time_from_peak", "sigma"
+)
+
+dt_table <- dtr_all[param_sizes_all_zero == param_sizes_all_zero_current]
+dt_table <- dt_table[, ..cols_of_interest]
+dt_table[, model_no_stan_str := as.character(model_no_stan)]
+
+# Rounding
+dt_table[, c("intercept", "time2peak", "time_from_peak") := lapply(.SD, round, 3),
+  .SDcols = c("intercept", "time2peak", "time_from_peak")
+]
+dt_table[, c("sigma") := lapply(.SD, round, 3),
+  .SDcols = c("sigma")
+]
+
+# Multiplying
+dt_table[, c("intercept", "time2peak", "time_from_peak") := lapply(.SD, function(x) sprintf("%.1f", x * 100)),
+  .SDcols = c("intercept", "time2peak", "time_from_peak")
+]
+dt_table[, c("sigma") := lapply(.SD, function(x) x * 100),
+  .SDcols = c("sigma")
+]
+
+for (col_current in c("intercept", "time2peak", "time_from_peak")) {
+  col_hdi_current <- paste0(col_current, "_hdi")
+  dt_table[, lower := round(as.numeric(sapply(get(col_hdi_current), `[`, 1)), 3) * 100] # First element
+  dt_table[, upper := round(as.numeric(sapply(get(col_hdi_current), `[`, 2)), 3) * 100] # Second element
+  # Create new column containing median and hpdi
+  dt_table[, (col_current) := paste0(
+    "$", get(col_current), "$",
+    " & ",
+    "$", sprintf("%.1f", lower), "$",
+    " & ",
+    "$", sprintf("%.1f", upper), "$"
+  )]
+}
+
+
+dt_table <- dt_table[, ..cols_of_interest2]
+
+replace_colnames <- list("model_no_stan_str" = "Model", "min_n_tests" = "Min. PCR days", "min_n_pos_tests" = "Min. pos. PCR days", "iteration" = "Iteration", "intercept" = "Peak", "time2peak" = "Days to peak", "time_from_peak" = "Days from peak", "slope_up_sigma" = "Random up-slope standard deviation", "slope_down_sigma" = "Random down-slope standard deviation", "intercept_sigma" = "Random intercept standard deviation", "sigma" = "Residual standard deviation")
+
+# Replace model names
+dt_table[model_no_stan == 1, model_no_stan_str := "1"]
+dt_table[model_no_stan == 3, model_no_stan_str := "1_2"]
+dt_table[model_no_stan == 2, model_no_stan_str := "2"]
+dt_table <- dt_table[, c(9, 1, 2, 3, 4, 5, 6, 7, 8)]
+dt_table <- dt_table[order(model_no_stan_str, iteration, min_n_tests, min_n_pos_tests)]
+
+
+# Replace column names
+setnames(dt_table,
+  old = names(replace_colnames), new = unlist(replace_colnames),
+  skip_absent = TRUE
+)
+
+if (param_sizes_all_zero_current == FALSE) {
+  dt_table[, Iteration := NULL]
+}
+```
+
+## Differences between true and estimated main parameter values
+
+```{r}
+if (param_sizes_all_zero_current) {
+  model_params_current_latex <- c(
+    "Min. PCR days", "Min. pos. PCR days",
+    "Peak", "Days to peak", "Days from peak"
+  )
+} else {
+  model_params_current_latex <- c(
+    "Min. PCR days", "Min. pos. PCR days",
+    "Peak", "Days to peak", "Days from peak"
+  )
+}
+
+model_no_current_latex <- c("1", "2")
+model_no_current_latex_label <- ifelse(model_no_current_latex == "1_2", "1_2", "1-2")
+dt_table_current <- dt_table[Model %in% model_no_current_latex]
+dt_table_current <- dt_table_current[, ..model_params_current_latex]
+
+param_sizes_all_zero_suffix <- ifelse(param_sizes_all_zero_current, "", "GroupDiffs")
+label_current <- paste0("simulationEstimation", param_sizes_all_zero_suffix, model_no_current_latex_label)
+
+
+# Split the data by the "group" column
+grouped_data <- split(dt_table_current, dt_table_current[["Min. PCR days"]])
+
+# Generate the LaTeX body for each group and combine with thick horizontal lines
+latex_body <- paste(
+  lapply(grouped_data, function(group_df) {
+    # Apply format_row to each row in the group and collapse with "\n"
+    paste(apply(group_df, 1, format_row), collapse = "\n")
+  }),
+  collapse = " \n\\specialrule{0.55pt}{0pt}{0pt}\n"
+)
+```
+
+### Median deviations
+
+```{r}
+# Compute median deviations for different models
+
+relative_difference <- TRUE
+if (relative_difference) {
+  dt_current <- dtr_all
+  results_factor <- 100
+} else {
+  dt_current <- dt_all
+  results_factor <- 1
+}
+dt_current_stats <- dt_current[param_sizes_all_zero == param_sizes_all_zero_current]
+dt_current_stats[, n_tests_combination := paste0(min_n_tests, "_", min_n_pos_tests)]
+by_var_current <- "model_no_stan" # "n_tests_combination"#
+
+
+result_peak <- dt_current_stats[
+  , .(
+    median_peak_dev = median(intercept) * eval(results_factor),
+    lower_quartile = quantile(intercept, 0.25, na.rm = TRUE) * eval(results_factor),
+    upper_quartile = quantile(intercept, 0.75, na.rm = TRUE) * eval(results_factor),
+    iqr = IQR(intercept * eval(results_factor), na.rm = TRUE)
+  ),
+  by = eval(as.name(by_var_current))
+]
+result_time2peak <- dt_current_stats[
+  , .(
+    median_time2peak_dev = median(time2peak) * eval(results_factor),
+    lower_quartile = quantile(time2peak, 0.25, na.rm = TRUE) * eval(results_factor),
+    upper_quartile = quantile(time2peak, 0.75, na.rm = TRUE) * eval(results_factor),
+    iqr = IQR(time2peak * eval(results_factor), na.rm = TRUE)
+  ),
+  by = eval(as.name(by_var_current))
+]
+result_time_from_peak <- dt_current_stats[
+  , .(
+    median_time_from_peak_dev = median(time_from_peak) * eval(results_factor),
+    lower_quartile = quantile(time_from_peak, 0.25, na.rm = TRUE) * eval(results_factor),
+    upper_quartile = quantile(time_from_peak, 0.75, na.rm = TRUE) * eval(results_factor),
+    iqr = IQR(time_from_peak * eval(results_factor), na.rm = TRUE)
+  ),
+  by = eval(as.name(by_var_current))
+]
+```
+
+
+```{r}
+result_time2peak
+```
+
+#### Between iterations of model 2
+
+```{r}
+# Evaluate variation between different iterations (was done for Model 2 only)
+relative_difference <- TRUE
+if (relative_difference) {
+  dt_current <- dtr_all
+  results_factor <- 100
+} else {
+  dt_current <- dt_all
+  results_factor <- 1
+}
+dt_current_stats_2 <- dt_current[(param_sizes_all_zero == param_sizes_all_zero_current) &
+  (model_no_stan == 2)]
+
+
+diff_2 <- dt_current_stats_2[,
+  {
+    peak1 <- intercept[iteration == 1] * eval(results_factor)
+    peak2 <- intercept[iteration == 2] * eval(results_factor)
+    diff_peak <- peak1 - peak2
+    time2_1 <- time2peak[iteration == 1] * eval(results_factor)
+    time2_2 <- time2peak[iteration == 2] * eval(results_factor)
+    diff_time2 <- time2_1 - time2_2
+    time_from_1 <- time_from_peak[iteration == 1] * eval(results_factor)
+    time_from_2 <- time_from_peak[iteration == 2] * eval(results_factor)
+    diff_time_from <- time_from_1 - time_from_2
+    list(diff_peak = diff_peak, diff_time2 = diff_time2, diff_time_from = diff_time_from)
+  },
+  by = .(min_n_tests, min_n_pos_tests)
+]
+
+result_2 <- diff_2[
+  , .(
+    median_peak_dev = median(diff_peak),
+    lower_quartile_peak = quantile(diff_peak, 0.25, na.rm = TRUE),
+    upper_quartile_peak = quantile(diff_peak, 0.75, na.rm = TRUE),
+    iqr_peak = IQR(diff_peak, na.rm = TRUE),
+    median_time2_dev = median(diff_time2),
+    lower_quartile_time2 = quantile(diff_time2, 0.25, na.rm = TRUE),
+    upper_quartile_time2 = quantile(diff_time2, 0.75, na.rm = TRUE),
+    iqr_time2 = IQR(diff_time2, na.rm = TRUE),
+    median_time_from_dev = median(diff_time_from),
+    lower_quartile_time_from = quantile(diff_time_from, 0.25, na.rm = TRUE),
+    upper_quartile_time_from = quantile(diff_time_from, 0.75, na.rm = TRUE),
+    iqr_time_from = IQR(diff_time_from, na.rm = TRUE)
+  )
+]
+```
+
+```{r}
+result_2
+```
+
+
+## Differences between true and estimated sigma parameter values
+
+```{r}
+cols_of_interest <- c(
+  "model_no_stan", "min_n_tests", "min_n_pos_tests", "iteration",
+  "intercept_sigma", "slope_up_sigma", "slope_down_sigma", "sigma"
+)
+
+dtr_table <- dtr_all[param_sizes_all_zero == param_sizes_all_zero_current]
+dtr_table <- dtr_table[, ..cols_of_interest]
+
+replace_colnames <- list("model_no_stan_str" = "Model", "min_n_tests" = "Min. PCR days", "min_n_pos_tests" = "Min. pos. PCR days", "iteration" = "Iteration", "intercept" = "Peak", "time2peak" = "Days to peak", "time_from_peak" = "Days from peak", "slope_up_sigma" = "Random up-slope standard deviation", "slope_down_sigma" = "Random down-slope standard deviation", "intercept_sigma" = "Random intercept standard deviation", "sigma" = "Residual standard deviation")
+
+# Replace model names
+dtr_table[model_no_stan == 3, model_no_stan_str := "1_2"]
+dtr_table[model_no_stan == 2, model_no_stan_str := "2"]
+dtr_table[model_no_stan == 1, model_no_stan_str := "1"]
+dtr_table <- dtr_table[, c(9, 1, 2, 3, 4, 5, 6, 7, 8)]
+dtr_table <- dtr_table[order(model_no_stan_str, iteration, min_n_tests, min_n_pos_tests)]
+
+# Rounding
+dtr_table[, c("intercept_sigma", "slope_up_sigma", "slope_down_sigma", "sigma") := lapply(.SD, round, 3),
+  .SDcols = c("intercept_sigma", "slope_up_sigma", "slope_down_sigma", "sigma")
+]
+dtr_table[, c("intercept_sigma", "slope_up_sigma", "slope_down_sigma", "sigma") := lapply(
+  .SD,
+  function(x) x * 100
+),
+.SDcols = c("intercept_sigma", "slope_up_sigma", "slope_down_sigma", "sigma")
+]
+
+# Replace column names
+setnames(dtr_table, old = names(replace_colnames), new = unlist(replace_colnames), skip_absent = TRUE)
+
+if (param_sizes_all_zero_current) {
+  model_params_current_latex <- c(
+    "Model", "Min. PCR days", "Min. pos. PCR days",
+    "Iteration", "Random up-slope standard deviation",
+    "Random down-slope standard deviation",
+    "Random intercept standard deviation",
+    "Residual standard deviation"
+  )
+} else {
+  model_params_current_latex <- c(
+    "Model", "Min. PCR days", "Min. pos. PCR days",
+    "Random up-slope standard deviation",
+    "Random down-slope standard deviation",
+    "Random intercept standard deviation",
+    "Residual standard deviation"
+  )
+}
+
+
+dtr_table_current <- dtr_table[, ..model_params_current_latex]
+param_sizes_all_zero_suffix <- ifelse(param_sizes_all_zero_current, "", "GroupDiffs")
+label_current <- paste0("simulationEstimationSigma", param_sizes_all_zero_suffix)
+
+
+# Split the data by the "group" column
+grouped_data <- split(dtr_table_current, dtr_table_current[["Min. PCR days"]])
+
+# Generate the LaTeX body for each group and combine with thick horizontal lines
+latex_body <- paste(
+  lapply(grouped_data, function(group_df) {
+    # Apply format_row to each row in the group and collapse with "\n"
+    paste(apply(group_df, 1, function(row) {
+      format_row(row,
+        bold = FALSE, dec_places = 3,
+        latex_math = TRUE
+      )
+    }), collapse = "\n")
+  }),
+  collapse = " \n\\specialrule{0.55pt}{0pt}{0pt}\n"
+)
+```
+
+### Median deviations
+
+```{r}
+# Compute median deviations for different models
+
+dt_current_stats <- dtr_all[param_sizes_all_zero == param_sizes_all_zero_current]
+dt_current_stats[, n_tests_combination := paste0(min_n_tests, "_", min_n_pos_tests)]
+by_var_current <- "model_no_stan"
+
+result_peak_sigma <- dt_current_stats[
+  , .(
+    median_dev = median(intercept_sigma),
+    lower_quartile = quantile(intercept_sigma, 0.25, na.rm = TRUE),
+    upper_quartile = quantile(intercept_sigma, 0.75, na.rm = TRUE),
+    iqr = IQR(intercept_sigma, na.rm = TRUE),
+    max = max(intercept_sigma),
+    min = min(intercept_sigma)
+  ),
+  by = eval(as.name(by_var_current))
+]
+result_slope_up_sigma <- dt_current_stats[
+  , .(
+    median_dev = median(slope_up_sigma),
+    lower_quartile = quantile(slope_up_sigma, 0.25, na.rm = TRUE),
+    upper_quartile = quantile(slope_up_sigma, 0.75, na.rm = TRUE),
+    iqr = IQR(slope_up_sigma, na.rm = TRUE)
+  ),
+  by = eval(as.name(by_var_current))
+]
+result_slope_down_sigma <- dt_current_stats[
+  , .(
+    median_dev = median(slope_down_sigma),
+    lower_quartile = quantile(slope_down_sigma, 0.25, na.rm = TRUE),
+    upper_quartile = quantile(slope_down_sigma, 0.75, na.rm = TRUE),
+    iqr = IQR(slope_down_sigma, na.rm = TRUE)
+  ),
+  by = eval(as.name(by_var_current))
+]
+
+result_sigma <- dt_current_stats[
+  , .(
+    median_dev = median(sigma),
+    lower_quartile = quantile(sigma, 0.25, na.rm = TRUE),
+    upper_quartile = quantile(sigma, 0.75, na.rm = TRUE),
+    iqr = IQR(sigma, na.rm = TRUE)
+  ),
+  by = eval(as.name(by_var_current))
+]
+```
+ 
+```{r}
+result_sigma
+```
+ 
+ 
+# Group-specific parameter estimates
+
+## Proportion of wrongly estimated differences with HDI excluding 0
+
+```{r}
+exclude_true_zero_values <- TRUE
+column_suffix <- ifelse(param_sizes_all_zero_current,
+  "_hdi_contains_true_value",
+  "_hdi_combination"
+)
+group_cols_hdi_mapping <- return_group_cols_hdi_mapping(
+  log_prefix = "", include_base_cols = FALSE,
+  column_suffix = column_suffix
+)
+group_cols_intercept <- return_group_cols("")$group_cols_mapping$intercept
+group_cols_intercept <- c(
+  group_cols_intercept, paste0(group_cols_intercept, "_hdi"),
+  paste0(group_cols_intercept, "_hdi50")
+)
+group_cols_slope_up <- return_group_cols("")$group_cols_mapping$slope_up
+group_cols_slope_up <- c(
+  group_cols_slope_up, paste0(group_cols_slope_up, "_hdi"),
+  paste0(group_cols_slope_up, "_hdi50")
+)
+group_cols_slope_down <- return_group_cols("")$group_cols_mapping$slope_down
+group_cols_slope_down <- c(
+  group_cols_slope_down, paste0(group_cols_slope_down, "_hdi"),
+  paste0(group_cols_slope_down, "_hdi50")
+)
+
+
+dts_current_stats <- get_sim_dts(
+  model_no = NULL,
+  param_sizes_all_zero = param_sizes_all_zero_current
+)
+dtr_current_stats <- dts_current_stats$dte
+
+if (param_sizes_all_zero_current) {
+  combination_cols <- FALSE
+  contains_true_value_cols <- TRUE
+  hdi_col_name <- "hdi_contains_true_value"
+} else {
+  combination_cols <- TRUE
+  contains_true_value_cols <- FALSE
+  hdi_col_name <- "hdi_combination"
+}
+
+dtr_intercept <- dtr_current_stats[, c(
+  "model_no_stan", group_cols_hdi_mapping$intercept,
+  group_cols_intercept
+), with = FALSE]
+dtr_intercept <- reshape_dt(dtr_intercept,
+  id_vars = c("model_no_stan"),
+  combination_cols = combination_cols,
+  contains_true_value_cols = contains_true_value_cols
+)
+dtr_intercept <- dtr_intercept[, c("model_no_stan", hdi_col_name, "statistic", "value"),
+  with = FALSE
+]
+
+
+dtr_slope_up <- dtr_current_stats[, c(
+  "model_no_stan", group_cols_hdi_mapping$slope_up,
+  group_cols_slope_up
+), with = FALSE]
+dtr_slope_up <- reshape_dt(dtr_slope_up,
+  id_vars = c("model_no_stan"),
+  combination_cols = combination_cols,
+  contains_true_value_cols = contains_true_value_cols
+)
+dtr_slope_up <- dtr_slope_up[, c("model_no_stan", hdi_col_name, "statistic", "value"), with = FALSE]
+
+
+dtr_slope_down <- dtr_current_stats[, c(
+  "model_no_stan", group_cols_hdi_mapping$slope_down,
+  group_cols_slope_down
+), with = FALSE]
+dtr_slope_down <- reshape_dt(dtr_slope_down,
+  id_vars = c("model_no_stan"),
+  combination_cols = combination_cols,
+  contains_true_value_cols = contains_true_value_cols
+)
+dtr_slope_down <- dtr_slope_down[, c("model_no_stan", hdi_col_name, "statistic", "value"),
+  with = FALSE
+]
+
+
+if (param_sizes_all_zero_current) {
+  by_stat <- "model_no_stan"
+} else {
+  by_stat <- c("model_no_stan", "hdi_combination")
+}
+
+if (param_sizes_all_zero_current) {
+  result_intercept <- dtr_intercept[
+    , .(
+      mean = mean(hdi_contains_true_value)
+    ),
+    by = model_no_stan
+  ]
+
+  result_slope_up <- dtr_slope_up[
+    , .(
+      mean = mean(hdi_contains_true_value)
+    ),
+    by = model_no_stan
+  ]
+
+  result_slope_down <- dtr_slope_down[
+    , .(
+      mean = mean(hdi_contains_true_value)
+    ),
+    by = model_no_stan
+  ]
+} else {
+  # Compute the relative frequency of the values present in combination columns
+  interaction_vars <- c("hospitalized_alpha", "hospitalized_delta", "hospitalized_omicron")
+  intercept_interaction_vars <- paste0("intercept_", interaction_vars)
+  slope_up_interaction_vars <- paste0("slope_up_", interaction_vars)
+  slope_down_interaction_vars <- paste0("slope_down", interaction_vars)
+  # Step 1: Count occurrences
+  if (exclude_true_zero_values) {
+    # Exclude Alpha and Unknown and interaction parameters as their true values
+    # are 0 and we want the percentage of DIFFERENCES that were correctly identified as such
+    counts_intercept <- dtr_intercept[
+      !statistic %in% c(
+        c(
+          "intercept_alpha",
+          "intercept_unknown",
+          "intercept_gender"
+        ),
+        intercept_interaction_vars
+      ),
+      .(count = .N),
+      by = .(model_no_stan, hdi_combination)
+    ]
+  } else {
+    # For the percentage of cases where the estimate excluded both the true value and 0,
+    # we use all parameters again
+    counts_intercept <- dtr_intercept[, .(count = .N),
+      by = .(model_no_stan, hdi_combination)
+    ]
+  }
+
+  # # Step 2: Compute relative frequencies
+  counts_intercept[, relative_freq := count / sum(count), by = model_no_stan]
+  counts_intercept <- counts_intercept[order(model_no_stan, hdi_combination)]
+
+  # Step 1: Count occurrences
+  if (exclude_true_zero_values) {
+    counts_slope_up <- dtr_slope_up[
+    !statistic %in% c(
+      c(
+        "slope_up_pams",
+        "slope_up_hospitalized",
+        "slope_up_age_cat2",
+        "slope_up_age_cat3",
+        "slope_up_gender"
+      ),
+      slope_up_interaction_vars
+    ),
+    .(count = .N),
+    by = .(model_no_stan, hdi_combination)
+    ]
+  } else {
+    counts_slope_up <- dtr_slope_up[, .(count = .N),
+      by = .(model_no_stan, hdi_combination)
+      ]
+  }
+
+  # # Step 2: Compute relative frequencies
+  counts_slope_up[, relative_freq := count / sum(count), by = model_no_stan]
+  counts_slope_up <- counts_slope_up[order(model_no_stan, hdi_combination)]
+
+  # Step 1: Count occurrences
+  if (exclude_true_zero_values) {
+    counts_slope_down <- dtr_slope_down[
+    !statistic %in% c(
+      c("slope_down_gender"),
+      slope_down_interaction_vars
+    ),
+    .(count = .N),
+    by = .(model_no_stan, hdi_combination)
+    ]
+  } else {
+    counts_slope_down <- dtr_slope_down[, .(count = .N),
+      by = .(model_no_stan, hdi_combination)
+      ]
+  }
+
+  # Step 2: Compute relative frequencies
+  counts_slope_down[, relative_freq := count / sum(count), by = model_no_stan]
+  counts_slope_down <- counts_slope_down[order(model_no_stan, hdi_combination)]
+}
+```
+
+```{r}
+counts_slope_up
+```
+
+
+## Median (absolute) deviations for group-specific params (by parameter type)
+
+```{r}
+# Compute median deviations for different models
+
+group_cols <- return_group_cols("")
+id_var_current <- "model_no_stan" # "n_tests_combination"
+
+dtr_current_stats <- dtr_all[param_sizes_all_zero == param_sizes_all_zero_current]
+dtr_current_stats[, n_tests_combination := paste0(min_n_tests, "_", min_n_pos_tests)]
+
+group_cols_current <- c(
+  id_var_current,
+  group_cols$group_cols_mapping$intercept,
+  paste0(group_cols$group_cols_mapping$intercept, "_hdi"),
+  paste0(group_cols$group_cols_mapping$intercept, "_hdi50")
+)
+dtr_intercept <- dtr_current_stats[, group_cols_current, with = FALSE]
+dtr_intercept <- reshape_dt(dtr_intercept, id_vars = id_var_current, hdi_cols = TRUE)
+
+group_cols_current <- c(
+  id_var_current, group_cols$group_cols_mapping$slope_up,
+  paste0(group_cols$group_cols_mapping$slope_up, "_hdi"),
+  paste0(group_cols$group_cols_mapping$slope_up, "_hdi50")
+)
+dtr_slope_up <- dtr_current_stats[, group_cols_current, with = FALSE]
+dtr_slope_up <- reshape_dt(dtr_slope_up, id_vars = id_var_current, hdi_cols = TRUE)
+
+group_cols_current <- c(
+  id_var_current, group_cols$group_cols_mapping$slope_down,
+  paste0(group_cols$group_cols_mapping$slope_down, "_hdi"),
+  paste0(group_cols$group_cols_mapping$slope_down, "_hdi50")
+)
+dtr_slope_down <- dtr_current_stats[, group_cols_current, with = FALSE]
+dtr_slope_down <- reshape_dt(dtr_slope_down,
+  id_vars = id_var_current,
+  hdi_cols = TRUE
+)
+
+
+result_intercept <- dtr_intercept[
+  , .(
+    median = median(abs(value))
+  ),
+  by = eval(as.name(id_var_current))
+] %>%
+  .[order(median)]
+
+result_slope_up <- dtr_slope_up[
+  , .(
+    median = median(abs(value))
+  ),
+  by = eval(as.name(id_var_current))
+] %>%
+  .[order(median)]
+
+result_slope_down <- dtr_slope_down[
+  , .(
+    median = median(abs(value))
+  ),
+  by = eval(as.name(id_var_current))
+] %>%
+  .[order(median)]
+```
+
+```{r}
+result_slope_down
+```
+
+## Correlations of interaction effects
+
+```{r}
+# Correlations between variant estimates, hospitalization estimates and hospitalization:variant estimates
+
+param_var <- "intercept"
+variant_var <- "omicron"
+
+
+dt_cor <- data.table(variant = character(), param = character(), cor = numeric())
+
+for (param_var in c("intercept", "slope_up", "slope_down")) {
+  for (variant_var in c("alpha", "delta", "omicron")) {
+    variant_param <- paste0(param_var, "_", variant_var)
+    variant_hosp_param <- paste0(param_var, "_hospitalized_", variant_var)
+    cor_now <- cor(dte_orig[[variant_param]], dte_orig[[variant_hosp_param]])
+    # New row(s) to add (as a data.table or list)
+    new_row <- data.table(variant = variant_var, param = param_var, cor = cor_now)
+    # Append the new row
+    dt_cor <- rbind(dt_cor, new_row, fill = TRUE)
+  }
+}
+
+dt_cor[, mean_cor_by_param := mean(cor), by = .(param)]
+dt_cor[, mean_cor_by_variant := mean(cor), by = .(variant)]
+```
+

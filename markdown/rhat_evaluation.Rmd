@@ -1,0 +1,250 @@
+---
+title: "Evaluation of run diagnostics (Rhat, ESS)"
+output: html_document
+date: "2026-01-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(stringr)
+library(ggplot2)
+library(RColorBrewer) # For color palettes
+library(xtable)
+library(here)
+
+
+TOP <- here()
+source(file.path(TOP, "plot_params.R"))
+source(file.path(TOP, "plot_utils.R"))
+source(file.path(TOP, "data_utils.R"))
+pdata_dir <- DIR_PDATA
+
+sampling_iterations <- 2000
+sim_data <- FALSE
+param_sizes_all_zero <- FALSE
+if (sim_data) {
+  sampling_iterations <- 1000
+  if (param_sizes_all_zero) {
+    model_nos <- c(1, 2, 3)
+  } else {
+    model_nos <- c(1, 2)
+  }
+} else {
+  model_nos <- c(1, 2, 4, 5)
+}
+
+if (sim_data) {
+  plot_dir_final <- ifelse(param_sizes_all_zero, "param_sizes_all_zero", "param_sizes_not_zero")
+  plot_dir <- file.path(DIR_FIGURES_VL_SIM, plot_dir_final, "rhat")
+} else {
+  plot_dir <- file.path(DIR_FIGURES_VL, "rhat")
+}
+
+
+# Plot params
+height_plot <- HEIGHT_SIM_PLOT
+col_width <- COL_WIDTH
+```
+
+# Load data
+
+```{r}
+# dtrhat_reshaped contains only Rhat (not ESS values)
+dtrhat_reshaped <- return_rhat_reshaped(
+  sim_data = sim_data,
+  model_no = model_nos,
+  param_sizes_all_zero = param_sizes_all_zero
+)
+# The following data.tables contain both Rhat and ESS values (of real, non-simulated data)
+dtrhat_reshaped_infection <- return_rhat_reshaped_infection()
+dtrhat_reshaped_real <- return_rhat_reshaped_main_n_groups()
+```
+
+
+# Plotting
+
+```{r}
+# Make plots grouped by model configuration and main model parameter.
+make_rhat_overview_plot(dtrhat_reshaped,
+  plot_dir = plot_dir,
+  sim_data = sim_data,
+  model_nos = c(1, 2),
+  param_sizes_all_zero = param_sizes_all_zero,
+  sampling_iterations = sampling_iterations
+)
+
+make_rhat_overview_plot(dtrhat_reshaped_infection,
+  plot_dir = plot_dir,
+  sim_data = sim_data,
+  model_nos = c(1, 2),
+  param_sizes_all_zero = param_sizes_all_zero,
+  infection_level = TRUE,
+  sampling_iterations = sampling_iterations
+)
+
+
+if (sim_data) {
+  # The following is only for simulated data
+  make_rhat_model_plots(dtrhat_reshaped,
+    model_nos = c(1, 2),
+    sampling_iterations = sampling_iterations,
+    plot_dir = plot_dir
+  )
+}
+```
+
+## Summary statistics
+
+```{r}
+# Compute summary statistics of Rhat values across parameters, for different model configurations.
+dt_current <- dtrhat_reshaped[iter_sampling == sampling_iterations]
+# dt_current = dtrhat_reshaped[(min_n_pos_tests == 2) & (min_tests %in% c(3, 6))] <-- this applies to simulation experiments only
+value_current <- "value" # rhat
+param_name <- "statistic" # param
+
+result_rhats <- dt_current[, .(
+  median = median(get(value_current)),
+  mean = mean(get(value_current)),
+  sd = sd(get(value_current)),
+  max = max(get(value_current))
+),
+by = .(model_no_stan, iter_sampling)
+]
+
+result_rhats2 <- dt_current[, .(
+  median = median(get(value_current)),
+  mean = mean(get(value_current)),
+  sd = sd(get(value_current)),
+  max = max(get(value_current))
+),
+by = .(model_no_stan, min_tests, iter_sampling)
+]
+
+result_rhats_detailed <- dt_current[, .(
+  median = median(get(value_current)),
+  mean = mean(get(value_current)),
+  sd = sd(get(value_current)),
+  max = max(get(value_current))
+),
+by = .(model_no_stan, get(param_name), iter_sampling)
+]
+setorder(result_rhats_detailed, -median)
+
+
+result_rhats_detailed2 <- dt_current[, .(
+  median = median(get(value_current)),
+  mean = mean(get(value_current)),
+  sd = sd(get(value_current)),
+  max = max(get(value_current))
+),
+by = .(model_no_stan, min_tests, get(param_name), iter_sampling)
+]
+setorder(result_rhats_detailed2, -median)
+
+
+result_rhats_by_param <- dt_current[, .(
+  median = median(get(value_current)),
+  mean = mean(get(value_current)),
+  sd = sd(get(value_current)),
+  max = max(get(value_current))
+),
+by = .(get(param_name), iter_sampling)
+]
+setorder(result_rhats_by_param, -median)
+
+result_rhats_by_min_tests <- dt_current[, .(
+  median = median(get(value_current)),
+  mean = mean(get(value_current)),
+  sd = sd(get(value_current)),
+  max = max(get(value_current))
+),
+by = .(model_no_stan, min_tests, iter_sampling)
+]
+
+result_rhats_by_min_pos_tests <- dt_current[, .(
+  median = median(get(value_current)),
+  mean = mean(get(value_current)),
+  sd = sd(get(value_current)),
+  max = max(get(value_current))
+),
+by = .(model_no_stan, min_n_pos_tests, iter_sampling)
+]
+
+# result_rhats_by_min_tests = dt_current[, .(median = median(get(value_current)),
+#                                            mean = mean(get(value_current)),
+#                                            sd = sd(get(value_current)),
+#                                            max = max(get(value_current))),
+#                                            by = min_n_pos_tests]
+
+result_rhats_by_param_type <- dt_current[, .(
+  median = median(get(value_current)),
+  mean = mean(get(value_current)),
+  sd = sd(get(value_current)),
+  max = max(get(value_current))
+),
+by = .(main_param, iter_sampling)
+]
+setorder(result_rhats_by_param_type, -median)
+
+result_rhats_by_param_type_model <- dt_current[, .(
+  median = median(get(value_current)),
+  mean = mean(get(value_current)),
+  sd = sd(get(value_current)),
+  max = max(get(value_current))
+),
+by = .(main_param, model_no_stan, iter_sampling)
+]
+setorder(result_rhats_by_param_type_model, -median)
+```
+
+
+```{r}
+result_rhats2[model_no_stan %in% c(1, 4)]
+```
+
+
+```{r}
+result_rhats2[model_no_stan %in% c(2, 5)]
+```
+
+
+```{r}
+# setorder(result_rhats_detailed, c(get, model_no_stan, iter_sampling))
+result_rhats_detailed2
+```
+
+## Tables
+```{r}
+# Make the body of latex tables to store Rhat and ESS values.
+models_current <- c(4, 5) # c(1, 2)
+latex_body_list <- list()
+dt_current <- dtrhat_reshaped_real
+dt_current[, min_n_tests := min_tests]
+dt_current <- dt_current[(iter_sampling == sampling_iterations) & (model_no_stan %in% models_current)]
+
+
+# The following is just for convenience
+cols_current <- unlist(unname(SUBGRPS_RHAT_LATEX))
+cols_current <- setNames(cols_current, cols_current)
+
+
+for (main_param_current in c("Peak", "Proliferation rate", "Clearance rate")) {
+  cols_chosen <- c(
+    "model_no_stan", "min_n_tests", "param", "rhat",
+    "main_param", "ess_bulk", "ess_tail"
+  )
+
+  model_levels <- c(4, 5)
+  model_labels <- c("Model 1", "Model 2")
+  model_nos <- c(1, 2)
+
+  dt_params <- dt_current[, ..cols_chosen]
+  dt_params <- dt_params[main_param == main_param_current]
+  dt_params[, model := factor(model_no_stan, levels = model_levels, labels = model_labels)]
+  dt_params <- dt_params[order(model_no_stan, min_n_tests)]
+
+  latex_body_list[[main_param_current]] <- create_latex_body_real_data(dt_params, cols_current, rhat = TRUE)
+}
+```
+

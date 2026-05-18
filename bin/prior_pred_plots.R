@@ -2,9 +2,9 @@ library(ggplot2)
 library(here)
 
 TOP <- here()
-source(file.path(TOP, "plot_params.R"))
-source(file.path(TOP, "data_utils.R"))
-source(file.path(TOP, "post_analysis.R"))
+source(file.path(TOP, "sars2vl", "plot_params.R"))
+source(file.path(TOP, "sars2vl", "data_utils.R"))
+source(file.path(TOP, "sars2vl", "post_analysis.R"))
 
 
 DIR_FIGURES_PRIOR_PRED <- file.path(DIR_FIGURES_VL, "prior_pred")

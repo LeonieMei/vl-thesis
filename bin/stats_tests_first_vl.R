@@ -3,7 +3,7 @@ library(optparse)
 library(here)
 
 TOP <- here()
-source(file.path(TOP, "data_utils.R"))
+source(file.path(TOP, "sars2vl", "data_utils.R"))
 
 
 option_list <- list(

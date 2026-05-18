@@ -4,8 +4,8 @@ library(ggstats)
 library(here)
 
 TOP <- here()
-source(file.path(TOP, "plot_params.R"))
-source(file.path(TOP, "data_utils.R"))
+source(file.path(TOP, "sars2vl", "plot_params.R"))
+source(file.path(TOP, "sars2vl", "data_utils.R"))
 
 
 

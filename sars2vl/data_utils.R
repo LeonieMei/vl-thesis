@@ -10,8 +10,8 @@ library(brms)
 library(here)
 
 TOP <- here()
-source(file.path(TOP, "post_analysis.R"))
-source(file.path(TOP, "data_params.R"))
+source(file.path(TOP, "sars2vl", "post_analysis.R"))
+source(file.path(TOP, "sars2vl", "data_params.R"))
 
 
 #### Load & prepare data for analysis ####

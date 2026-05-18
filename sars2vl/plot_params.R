@@ -1,7 +1,7 @@
 library(here)
 
 TOP <- here()
-source(file.path(TOP, "data_params.R"))
+source(file.path(TOP, "sars2vl", "data_params.R"))
 
 DIR_FIGURES_VL_SIM <- file.path(DIR_FIGURES, "vl_trajectories", "simulations")
 DIR_FIGURES_VL <- file.path(DIR_FIGURES, "vl_trajectories", "real")

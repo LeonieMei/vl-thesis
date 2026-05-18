@@ -18,3 +18,4 @@ Makefile
 .Rproj.user
 output/
 data/
+sbatch_scripts/fit_models/compile-vl-tc*

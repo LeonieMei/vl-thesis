@@ -19,15 +19,19 @@ The directory `markdown` contains R markdown files for
 * evaluating the results from model fitting with simulated data (`simulation_evaluation.Rmd`)
 * analyzing estimated differences in log<sub>10</sub> viral load from first positive PCR tests between different groups of the study population (`stats_tests_first_vl.Rmd`)
 
-The remaining files contain functions for 
+The `sars2vl` directory contains files with functions for 
 
 * data processing (`data_utils.R`)
 * figure generation (`plot_utils.R`)
 * processing of MCMC results (`post_analysis.R`)
 * figure generation of MCMC results (`post_analysis_plot.R`)
 
+and specifications of
 
-, scripts for 
+* data-related parameters (`data_params.R`)
+* plotting-related parameters (`plot_params.R`)
+
+, and the `bin` directory contains scripts for 
 
 * making swarmplots of log<sub>10</sub> viral loads from first positive PCR tests (`make_swarmplots_first_vl.R`)
 * posterior analysis (`post_pred.R`)
@@ -36,11 +40,6 @@ The remaining files contain functions for
 * making prior predictive check plots (`prior_pred_plots.R`)
 * model fitting (`run_stan_model.R`)
 * estimating differences in log<sub>10</sub> viral load from first positive PCR tests between different groups of the study population (`stats_tests_first_vl.R`)
-
-and specifications of
-
-* data-related parameters (`data_params.R`)
-* plotting-related parameters (`plot_params.R`)
 
 
 # License

@@ -6,8 +6,8 @@ library(optparse)
 library(here)
 
 TOP <- here()
-source(file.path(TOP, "data_params.R"))
-source(file.path(TOP, "post_analysis_plot.R"))
+source(file.path(TOP, "sars2vl", "data_params.R"))
+source(file.path(TOP, "sars2vl", "post_analysis_plot.R"))
 
 MAIN_PARAMS_MEAN_STATS <- file.path(DIR_PDATA, "params_stats.tsv")
 MAIN_PARAMS_MEAN_STATS_POST_PRED_GROUPS2 <- file.path(DIR_PDATA, "params_stats_post_pred_groups2.tsv")

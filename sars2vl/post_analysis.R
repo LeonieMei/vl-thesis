@@ -6,8 +6,8 @@ library(here)
 
 
 TOP <- here()
-source(file.path(TOP, "data_params.R"))
-source(file.path(TOP, "plot_params.R"))
+source(file.path(TOP, "sars2vl", "data_params.R"))
+source(file.path(TOP, "sars2vl", "plot_params.R"))
 
 MODELS_DAY2 <- c(2, 5)
 

@@ -15,7 +15,7 @@ library(here)
 library(posterior)
 
 TOP <- here()
-source(file.path(TOP, "data_utils.R"))
+source(file.path(TOP, "sars2vl", "data_utils.R"))
 outdir <- DIR_FIT_FIRST_VL
 ```
 

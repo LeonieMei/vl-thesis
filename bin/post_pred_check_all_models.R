@@ -6,8 +6,8 @@ library(optparse)
 library(here)
 
 TOP <- here()
-source(file.path(TOP, "data_params.R"))
-source(file.path(TOP, "post_analysis_plot.R"))
+source(file.path(TOP, "sars2vl", "data_params.R"))
+source(file.path(TOP, "sars2vl", "post_analysis_plot.R"))
 
 DIR_FIGURES_POST_PRED_CHECK <- file.path(DIR_FIGURES_VL, "post_pred_checks")
 

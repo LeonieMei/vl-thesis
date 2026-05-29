@@ -31,7 +31,7 @@ and specifications of
 * data-related parameters (`data_params.R`)
 * plotting-related parameters (`plot_params.R`)
 
-, and the `bin` directory contains scripts for 
+and the `bin` directory contains scripts for 
 
 * making swarmplots of log<sub>10</sub> viral loads from first positive PCR tests (`make_swarmplots_first_vl.R`)
 * posterior analysis (`post_pred.R`)

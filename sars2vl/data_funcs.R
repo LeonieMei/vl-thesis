@@ -3489,13 +3489,13 @@ return_rhat_reshaped <- function(sim_data = FALSE, param_sizes_all_zero = FALSE,
 #' @param min_tests The minimum number of PCR days per infection that were 
 #' required for inclusiogn in the run producing estimates stored in ss.
 #' @param model_no A model number to filter by (refers to the number of the 
-#' stan file)
+#' stan file).
 #'
-#' @return A data.table containing Rhat and ESS values for either up-slope, 
+#' @return A data.table containing Rhat and ESS values for either up-slope,
 #' intercept, or down-slope related population-level parameters
 process_main_param_rhat <- function(ss, main_param, min_tests,
                                     model_no) {
-  assert_that(main_param %in% c("Proliferation rate", "Peak", "Clearance rate", 
+  assert_that(main_param %in% c("Proliferation rate", "Peak", "Clearance rate",
                                 "Other"))
   param_string_mapping <- list(
     "Proliferation rate" = "slope_up_",
@@ -3512,7 +3512,7 @@ process_main_param_rhat <- function(ss, main_param, min_tests,
   param_str <- param_string_mapping[main_param]
   param_regex <- param_regex_mapping[main_param]
   main_param <- ifelse(main_param == "Other", NA, main_param)
-  
+
   # Process up-slopes
   param_ss <- ss[grepl(eval(param_regex), variable)]
   # Extract the number, or keep the original value if no match
@@ -3827,11 +3827,11 @@ summary_dt_vl <- function(dt, by, digits = 1, avg = "median") {
 #' @param fn The names of the model.
 #' @param adapt_delta A parameter for estimation in Stan.
 #' @return A brms fit object.
-bfit_first_vl_model <- function(formula, 
-                                data, 
-                                priors, 
-                                fn, 
-                                family, 
+bfit_first_vl_model <- function(formula,
+                                data,
+                                priors,
+                                fn,
+                                family,
                                 stanvars = NULL,
                                 redo = TRUE) {
   assert_that(family %in% c("student-t", "skewnormal"))

@@ -1,7 +1,6 @@
 # Code for viral load analysis as part of my PhD thesis
 
-This repository contains code for analyses of log<sub>10</sub> viral load data from Labor Berlin
-used in my PhD thesis. The data are not included.
+This repository contains code for analyses of log<sub>10</sub> viral load data from Labor Berlin – Charité Vivantes GmbH used in my PhD thesis titled *Temporal analysis of SARS-CoV-2 rapid antigen test and PCR data*. The data are not included. The code and analyses build upon prior work ([Estimating infectiousness throughout SARS-CoV-2 infection course](https://www.science.org/doi/10.1126/science.abi5273); [link to github repo](https://github.com/VirologyCharite/SARS-CoV-2-VL-paper)) and have been adapted and extended by me.
 
 # Data
 

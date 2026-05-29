@@ -21,8 +21,8 @@ The directory `markdown` contains R markdown files for
 
 The `sars2vl` directory contains files with functions for 
 
-* data processing (`data_utils.R`)
-* figure generation (`plot_utils.R`)
+* data processing (`data_funcs.R`)
+* figure generation (`plot_funcs.R`)
 * processing of MCMC results (`post_analysis.R`)
 * figure generation of MCMC results (`post_analysis_plot.R`)
 

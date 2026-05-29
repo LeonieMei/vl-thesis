@@ -18,8 +18,8 @@ library(tools)
 TOP <- here()
 source(file.path(TOP, "sars2vl", "data_params.R"))
 source(file.path(TOP, "sars2vl", "plot_params.R"))
-source(file.path(TOP, "sars2vl", "plot_utils.R"))
-source(file.path(TOP, "sars2vl", "data_utils.R"))
+source(file.path(TOP, "sars2vl", "plot_funcs.R"))
+source(file.path(TOP, "sars2vl", "data_funcs.R"))
 
 param_sizes_all_zero_current <- TRUE
 param_sizes_suffix <- ifelse(param_sizes_all_zero_current, "", "GroupDiff")

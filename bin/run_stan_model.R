@@ -8,7 +8,7 @@ setDTthreads(1)
 
 TOP <- here()
 source(file.path(TOP, "sars2vl", "data_params.R"))
-source(file.path(TOP, "sars2vl", "data_utils.R"))
+source(file.path(TOP, "sars2vl", "data_funcs.R"))
 CMD_STAN_DIR <- Sys.getenv("CMD_STAN_DIR")
 set_cmdstan_path(CMD_STAN_DIR)
 

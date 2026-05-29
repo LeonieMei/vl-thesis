@@ -3,7 +3,7 @@ library(here)
 
 TOP <- here()
 source(file.path(TOP, "sars2vl", "plot_params.R"))
-source(file.path(TOP, "sars2vl", "data_utils.R"))
+source(file.path(TOP, "sars2vl", "data_funcs.R"))
 source(file.path(TOP, "sars2vl", "post_analysis.R"))
 
 

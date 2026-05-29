@@ -9,7 +9,7 @@ TOP <- here()
 source(file.path(TOP, "plot_params.R"))
 source(file.path(TOP, "data_params.R"))
 source(file.path(TOP, "post_analysis.R"))
-source(file.path(TOP, "plot_utils.R"))
+source(file.path(TOP, "plot_funcs.R"))
 
 
 # Functions for making posterior prediction plots

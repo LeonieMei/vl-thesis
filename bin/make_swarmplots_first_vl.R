@@ -7,8 +7,8 @@ library(here)
 TOP <- here()
 source(file.path(TOP, "sars2vl", "plot_params.R"))
 source(file.path(TOP, "sars2vl", "data_params.R"))
-source(file.path(TOP, "sars2vl", "data_utils.R"))
-source(file.path(TOP, "sars2vl", "plot_utils.R"))
+source(file.path(TOP, "sars2vl", "data_funcs.R"))
+source(file.path(TOP, "sars2vl", "plot_funcs.R"))
 
 DODGE_WIDTH <- .7
 MY_LEGEND_POSITION <- c(0.3, 0.8)

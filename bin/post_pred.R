@@ -1,7 +1,4 @@
 library(ggplot2)
-library(cowplot)
-library(grid)
-library(gridExtra)
 library(optparse)
 library(here)
 

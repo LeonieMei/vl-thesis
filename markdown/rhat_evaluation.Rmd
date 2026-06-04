@@ -8,9 +8,6 @@ date: "2026-01-23"
 knitr::opts_chunk$set(echo = TRUE)
 library(data.table)
 library(stringr)
-library(ggplot2)
-library(RColorBrewer) # For color palettes
-library(xtable)
 library(here)
 
 
@@ -94,7 +91,7 @@ if (sim_data) {
 }
 ```
 
-## Summary statistics
+# Summary statistics
 
 ```{r}
 # Compute summary statistics of Rhat values across parameters, for different model configurations.
@@ -214,7 +211,7 @@ result_rhats2[model_no_stan %in% c(2, 5)]
 result_rhats_detailed2
 ```
 
-## Tables
+# Tables
 ```{r}
 # Make the body of latex tables to store Rhat and ESS values.
 models_current <- c(4, 5) # c(1, 2)

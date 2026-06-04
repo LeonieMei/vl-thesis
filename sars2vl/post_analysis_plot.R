@@ -1,8 +1,9 @@
-library(bayesplot)
 library(patchwork)
 library(ggplot2)
 library(bayesplot)
 library(here)
+library(grid)
+library(gridExtra)
 
 
 TOP <- here()

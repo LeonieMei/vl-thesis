@@ -1,6 +1,5 @@
 library(ggplot2)
 library(ggbeeswarm)
-library(ggthemes)
 library(lubridate)
 library(here)
 

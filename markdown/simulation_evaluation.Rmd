@@ -9,8 +9,6 @@ knitr::opts_chunk$set(echo = TRUE)
 library(data.table)
 library(stringr)
 library(ggplot2)
-library(RColorBrewer) # For color palettes
-library(xtable)
 library(here)
 library(tools)
 

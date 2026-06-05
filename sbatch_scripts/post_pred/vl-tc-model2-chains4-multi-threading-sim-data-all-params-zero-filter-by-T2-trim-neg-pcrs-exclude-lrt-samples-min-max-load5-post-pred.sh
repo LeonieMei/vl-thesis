@@ -19,6 +19,6 @@ for min_tests in {3..7}; do
     if [ "$min_pos_tests" -gt "$min_tests" ] ; then
       continue
     fi
-    time Rscript post_pred.R --model_stan 2 --threading --min_tests ${min_tests} --min_pos_tests ${min_pos_tests} --n_iter_sampling 1000 --n_chains 4 --simulate_data --simulate_param_sizes_all_zero --filter_by_testname "T2" --trim_neg_pcrs --exclude_lrt_samples --min_max_load 5 --color_by "is.difficult" --make_only_mean_figure
+    time Rscript bin/post_pred.R --model_stan 2 --threading --min_tests ${min_tests} --min_pos_tests ${min_pos_tests} --n_iter_sampling 1000 --n_chains 4 --simulate_data --simulate_param_sizes_all_zero --filter_by_testname "T2" --trim_neg_pcrs --exclude_lrt_samples --min_max_load 5 --color_by "is.difficult" --make_only_mean_figure
   done
 done

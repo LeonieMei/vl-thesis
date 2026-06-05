@@ -3,7 +3,7 @@
 #SBATCH --job-name=vl-tc-model3-chains4-multi-threading-sim-data-all-params-zero-filter-by-T2-trim-neg-pcrs-7-days-to-negative-single-leading-trailing-neg-pcr-exclude-lrt-samples-min-max-load5
 #SBATCH --output=../output/output-model3-chains4-multi_threading-sim-data-all-params-zero-filter-by-T2-trim-neg-pcrs-7-days-to-negative-single-leading-trailing-neg-pcr-exclude-lrt-samples-min-max-load5.txt
 #
-#SBATCH --ntasks=16
+#SBATCH --cpus-per-task=16
 #SBATCH --nodes=1
 #SBATCH --time=8-00
 #SBATCH --mem=256G
@@ -20,6 +20,6 @@ for min_tests in {3..7}; do
     if [ "$min_pos_tests" -gt "$min_tests" ] ; then
       continue
     fi
-    time Rscript run_stan_model.R --model_stan 3 --threading --max_tree_depth 12 --min_tests ${min_tests} --min_pos_tests ${min_pos_tests} --n_iter_warmup 1000 --n_iter_sampling 1000 --n_chains 4 --simulate_data --simulate_param_sizes_all_zero --filter_by_testname "T2" --trim_neg_pcrs --days_to_negative 7 --single_leading_trailing_neg_pcr --exclude_lrt_samples --min_max_load 5
+    time Rscript bin/run_stan_model.R --model_stan 3 --threading --max_tree_depth 12 --min_tests ${min_tests} --min_pos_tests ${min_pos_tests} --n_iter_warmup 1000 --n_iter_sampling 1000 --n_chains 4 --simulate_data --simulate_param_sizes_all_zero --filter_by_testname "T2" --trim_neg_pcrs --days_to_negative 7 --single_leading_trailing_neg_pcr --exclude_lrt_samples --min_max_load 5
   done
 done

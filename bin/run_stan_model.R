@@ -12,6 +12,7 @@ source(file.path(TOP, "sars2vl", "data_funcs.R"))
 CMD_STAN_DIR <- Sys.getenv("CMD_STAN_DIR")
 set_cmdstan_path(CMD_STAN_DIR)
 
+
 option_list <- list(
   make_option(c("-s", "--model_stan"),
     type = "integer", default = 1,
@@ -172,11 +173,7 @@ opt <- parse_args(opt_parser)
 
 assert_that(opt$model_stan %in% c(1, 2, 3, 4, 5), msg = "You can choose from stan models 1, 2, 3, 4 and 5.")
 
-if (opt$threading) {
-  options(mc.cores = 16)
-} else {
-  options(mc.cores = 4)
-}
+options(mc.cores = 4)
 
 if (opt$n_samples == 0) {
   opt$n_samples <- NULL
@@ -323,7 +320,7 @@ for (selection in my_selections) {
       force_recompile = TRUE
     )
 
-    if (!compile_only){
+    if (!opt$compile_only){
       make_time_course_standata(
         selection = selection, # minimum number of data points per infection
         max_n_tests = opt$max_tests, # maximum number of data points per infection

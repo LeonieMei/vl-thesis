@@ -3,9 +3,9 @@
 #SBATCH --job-name=first-vl-test-variant
 #SBATCH --output=../output/output-first-vl-test-variant.txt
 #
-#SBATCH --ntasks=16
+#SBATCH --cpus-per-task=4
 #SBATCH --nodes=1
-#SBATCH --time=5:00:00
+#SBATCH --time=3:00:00
 #SBATCH --mem=128G
 
 set -euo pipefail

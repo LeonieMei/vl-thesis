@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-#SBATCH --job-name=first-vl-test-age
+#SBATCH --job-name=first-vl-test-all
 #SBATCH --output=../output/output-first-vl-test-all.txt
 #
-#SBATCH --ntasks=16
+#SBATCH --cpus-per-task=4
 #SBATCH --nodes=1
 #SBATCH --time=3:00:00
 #SBATCH --mem=128G

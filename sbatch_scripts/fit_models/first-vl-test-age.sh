@@ -3,9 +3,9 @@
 #SBATCH --job-name=first-vl-test-age
 #SBATCH --output=../output/output-first-vl-test-age.txt
 #
-#SBATCH --ntasks=16
 #SBATCH --nodes=1
-#SBATCH --time=6:00:00
+#SBATCH --cpus-per-task=4
+#SBATCH --time=3:00:00
 #SBATCH --mem=128G
 
 set -euo pipefail

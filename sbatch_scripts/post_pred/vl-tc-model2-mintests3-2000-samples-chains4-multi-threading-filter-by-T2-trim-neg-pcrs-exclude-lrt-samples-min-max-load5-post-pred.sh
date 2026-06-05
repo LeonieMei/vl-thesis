@@ -14,5 +14,5 @@ cd $VL_THESIS_DIR
 source ~/work/miniforge3/etc/profile.d/conda.sh
 conda activate r-paper2-me
 
-time Rscript post_pred.R --model_stan 2 --threading --min_tests 3 --min_pos_tests 2 --n_iter_sampling 2000 --n_chains 4 --filter_by_testname "T2" --trim_neg_pcrs --exclude_lrt_samples --min_max_load 5 --color_by "is.difficult"
+time Rscript bin/post_pred.R --model_stan 2 --threading --min_tests 3 --min_pos_tests 2 --n_iter_sampling 2000 --n_chains 4 --filter_by_testname "T2" --trim_neg_pcrs --exclude_lrt_samples --min_max_load 5 --color_by "is.difficult"
 

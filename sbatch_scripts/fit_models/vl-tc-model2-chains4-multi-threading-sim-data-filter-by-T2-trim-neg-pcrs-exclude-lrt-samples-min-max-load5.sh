@@ -3,9 +3,9 @@
 #SBATCH --job-name=vl-tc-model2-chains4-multi-threading-sim-data-filter-by-T2-trim-neg-pcrs-exclude-lrt-samples-min-max-load5
 #SBATCH --output=../output/output-model2-chains4-multi_threading-sim-data-filter-by-T2-trim-neg-pcrs-exclude-lrt-samples-min-max-load5.txt
 #
-#SBATCH --ntasks=16
+#SBATCH --cpus-per-task=16
 #SBATCH --nodes=1
-#SBATCH --time=9-00
+#SBATCH --time=5-00
 #SBATCH --mem=128G
 
 set -euo pipefail
@@ -20,6 +20,6 @@ for min_tests in {3..7}; do
       if [ "$min_pos_tests" -gt "$min_tests" ] ; then
         continue
       fi
-      time Rscript run_stan_model.R --model_stan 2 --threading --max_tree_depth 12 --min_tests ${min_tests} --min_pos_tests ${min_pos_tests} --n_iter_warmup 1000 --n_iter_sampling 1000 --n_chains 4 --simulate_data --filter_by_testname "T2" --trim_neg_pcrs --exclude_lrt_samples --min_max_load 5
+      time Rscript bin/run_stan_model.R --model_stan 2 --threading --max_tree_depth 12 --min_tests ${min_tests} --min_pos_tests ${min_pos_tests} --n_iter_warmup 1000 --n_iter_sampling 1000 --n_chains 4 --simulate_data --filter_by_testname "T2" --trim_neg_pcrs --exclude_lrt_samples --min_max_load 5
   done
 done

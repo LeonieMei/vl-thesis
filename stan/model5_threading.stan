@@ -36,8 +36,8 @@ data {
   int G;                                             // number of infections
   array[G] int gstart_DAY;                           // first day in time series for each infection; index for X_DAY and Y_DAY
   array[G] int gend_DAY;                             // last day in time series for each infection; index for X_DAY and Y_DAY
-  int N_NegTests;                                    // Total number negative test results
-  array[N_NegTests] int idx_NegTests;                // position of negative test results in Y_DAY
+  int N_neg_tests;                                    // Total number negative test results
+  array[N_neg_tests] int idx_neg_tests;                // position of negative test results in Y_DAY
   real L_median;                                     // upper limit for imputed viral loads for neg tests (based on median log10 vl of lowest 1% of positive PCRs)
   int K_PGH;                                         // Number of covariates
   matrix[G,K_PGH] X_PGH;                             // covariates 
@@ -76,7 +76,7 @@ parameters {
   real sigma_mu; // mean
 
   // imputed values for negative tests
-  vector<lower=-200,upper=L_median>[N_NegTests] imp_neg;
+  vector<lower=-200,upper=L_median>[N_neg_tests] imp_neg;
 
 }
 
@@ -140,8 +140,8 @@ model {
 
   if (condition_on_data == 1) {
   vector[N_DAY] Y_DAY_imputed = Y_DAY;
-  for (j in 1:N_NegTests) {
-    Y_DAY_imputed[idx_NegTests[j]] = imp_neg[j];
+  for (j in 1:N_neg_tests) {
+    Y_DAY_imputed[idx_neg_tests[j]] = imp_neg[j];
   }
 
   // Stan will choose data subset size automatically (for threading) when 

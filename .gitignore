@@ -19,3 +19,4 @@ Makefile
 output/
 data/
 sbatch_scripts/fit_models/compile-vl-tc*
+sbatch_scripts/fit_models/test*
